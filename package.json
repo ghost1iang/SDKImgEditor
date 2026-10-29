@@ -1,0 +1,39 @@
+{
+  "name": "my-image-editor-sdk",
+  "version": "1.4.2",
+  "description": "Zero-dependency Image Editor SDK with modal, in-place toolbar, and distributed modes",
+  "main": "dist/my-image-editor.umd.js",
+  "module": "dist/my-image-editor.es.js",
+  "types": "dist/types/index.d.ts",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && tsc",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "image-editor",
+    "sdk",
+    "canvas",
+    "ai",
+    "crop",
+    "wand",
+    "web-components"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
+  }
+}

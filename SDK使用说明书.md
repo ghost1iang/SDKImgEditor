@@ -1,0 +1,278 @@
+# MyImageEditor SDK 说明书
+
+本说明书详细介绍 **MyImageEditor SDK** 的系统架构、实现原理、功能特性、配置参数及在不同前端框架下的接入实践。
+
+---
+
+## 目录
+1. [系统架构与实现原理](#1-系统架构与实现原理)
+2. [主要功能特性](#2-主要功能特性)
+3. [SDK 参数配置表](#3-sdk-参数配置表)
+4. [三大接入方式详解与代码示例](#4-三大接入方式详解与代码示例)
+   - [4.1 模式一：新开窗口（Modal）](#41-模式一新开窗口modal)
+   - [4.2 模式二：原地编辑（Toolbar Popover）](#42-模式二原地编辑toolbar-popover)
+   - [4.3 模式三：分布式（Distributed）](#43-模式三分布式distributed)
+5. [常见前端框架快速接入 (Vue 3 / React)](#5-常见前端框架快速接入-vue-3--react)
+
+---
+
+## 1. 系统架构与实现原理
+
+MyImageEditor SDK 旨在将复杂的图像编辑组件转变为一个**零依赖、低耦合、即插即用**的现代 JavaScript 库。
+
+### 1.1 零框架依赖独立单文件打包
+- **内置完整运行时**：打包配置使用 Vite 与 Rollup，将 React 18 运行时、ReactDOM、Lucide 图标组件库以及编译后的 Tailwind CSS 样式全部静态打包进单文件（`dist/my-image-editor.umd.js` 与 `dist/my-image-editor.es.js`）。
+- **外部零安装**：无论是无框架的原生 HTML 页面，还是使用 Vue 2/3、Angular、Svelte、React 的项目，均**无需在 package.json 中安装任何额外依赖**，直接引入即可调用。
+
+### 1.2 样式隔离 (Shadow DOM 沙箱)
+- **隔离机制**：SDK 唤起时会动态在宿主页面创建挂载宿主容器，并调用 `host.attachShadow({ mode: 'open' })` 开启影子根节点。
+- **双向无干扰**：SDK 内置的 Tailwind 工具类与定制样式只在当前 Shadow DOM 生效，不会污染宿主应用的全局 CSS；同时宿主应用的 CSS 规则也不会破坏编辑器的 UI 排版与布局。
+
+### 1.3 Promise 异步闭环工作流
+- 整个编辑过程被封装为一个标准异步函数：`const result = await MyImageEditor.edit(target, options);`。
+- 用户操作完成后，点击右上角绿色的【完成】按钮，SDK 内部捕获当前最新的高分辨率 Canvas 数据，自动将其转换为用户指定的格式（`Blob`、`Base64` 或 `HTMLCanvasElement`）并触发 Promise 的 `resolve`。
+- 完成或取消时，SDK 自动清理 Shadow DOM 与监听器，释放内存，保证宿主页面无 DOM 残留。
+
+### 1.4 算法代码保真机制
+- 根目录下的 `AI图片编辑器.tsx` 所有算法与功能代码一个字符都未变动。
+- 图像算法引擎（魔棒 BFS 选区扫描、四角透视顶点剪裁、智能修边 Alpha 扫描、任意角度旋转外接矩形矩阵重算等）均以高保真形式在 SDK 中完全运行。
+
+---
+
+## 2. 主要功能特性
+
+SDK 拥有全套专业图像处理与 AI 能力：
+
+| 功能模块 | 对应工具图标/操作 | 说明 |
+| :--- | :--- | :--- |
+| **矩形选区** | `Square` | 可在画布上框选任意矩形，支持四角控制点二次缩放拖拽。 |
+| **套索选区** | `Pencil` | 鼠标手绘闭合路径，自动生成多边形遮罩与高亮提示。 |
+| **反转选区** | `FlipHorizontal` | 一键反转当前选区范围，实现内外像素的快速反转保护。 |
+| **透明检测** | `Eye` | 切换透明区域检测底纹（红白点阵），精准识别 Alpha 通道。 |
+| **智能魔棒** | `Eraser` | 支持**全屏色彩匹配**与**连通区域 BFS 漫水填充**两种模式；容差度可在 1~255 范围内精确平滑调节。 |
+| **智能修边** | `Crop` | 自动扫描图像中非透明像素的外接边界框，智能去多余留白。 |
+| **顶点拉伸** | `LandPlot` | 激活图像四角 4 个控制锚点，支持自由不规则透视剪裁与拉伸（按住 Shift/Cmd 可锁定水平/垂直轴）。 |
+| **吸管取色** | `Pipette` | 实时拾取画布任意坐标的像素 RGB 并转为十六进制色值。 |
+| **选区着色** | `PaintBucket` | 将当前吸管选中的色彩批量填充到魔棒选区或矩形闭合区域内。 |
+| **旋转变换** | `RotateCw` | 支持角度数值输入及 -180°~180° 滑块无级微调，自动计算旋转后的全新外接画布尺寸。 |
+| **PDF 导入** | 文件上传选择 | 动态按需加载 PDF.js 解析引擎，将 PDF 第一页按 2x 高清视口渲染转换为编辑画布。 |
+| **AI 图像重构** | 底部 Prompt 输入框 | 接入 Gemini 2.5 Flash Image Preview 接口，支持输入文本指令进行图像结构化修改与重构。 |
+| **历史版本栈** | 左侧折叠边栏 | 记录每一次编辑操作快照与缩略图，支持回滚并提供新分支开启确认弹窗。 |
+| **视口手势控制**| 缩放/平移 | 空格键（Space）抓手拖拽平移，50%~500% 缩放，双击或点击重置回到居中视图。 |
+
+---
+
+## 3. SDK 参数配置表
+
+调用方法：`MyImageEditor.edit(targetOrSource, options)`
+
+### 3.1 入参 `targetOrSource`
+| 参数类型 | 示例 | 说明 |
+| :--- | :--- | :--- |
+| `HTMLImageElement` | `document.getElementById('my-img')` | 目标图片节点（原地模式必传，完成后可自动更新该节点） |
+| `HTMLCanvasElement` | `canvasNode` | 目标 Canvas 画布 |
+| `string` | `'https://example.com/a.png'` 或 `data:image/png;base64,...` | 图片 URL 或 Base64 编码字符串 |
+| `Blob` / `File` | `fileInput.files[0]` | 本地文件对象 |
+| `null` / `undefined` | `null` | 空开画布，呈现文件上传与导入指引 |
+
+### 3.2 配置对象 `options`
+| 参数名 | 类型 | 默认值 | 适用模式 | 功能描述 |
+| :--- | :--- | :--- | :--- | :--- |
+| **`mode`** | `'modal' \| 'toolbar' \| 'distributed'` | `'modal'` | 全模式 | **核心模式**：`modal` (新开窗口)、`toolbar` (原地吸附)、`distributed` (分布式) |
+| **`outputType`** | `'blob' \| 'base64' \| 'canvas'` | `'blob'` | 全模式 | 用户点击【完成】后 Promise 返回的图片格式 |
+| **`autoUpdateTarget`** | `boolean` | `true` | `toolbar` / `modal` | 当传入目标为 `HTMLImageElement` 时，是否自动把处理后的新图赋给其 `.src` |
+| **`toolbarContainer`**| `string \| HTMLElement` | `undefined` | `distributed` | 分布式模式：宿主工程中**工具栏**的挂载插槽节点或 CSS 选择器 |
+| **`canvasContainer`** | `string \| HTMLElement` | `undefined` | `distributed` | 分布式模式：宿主工程中**画布工作区**的挂载插槽节点或 CSS 选择器 |
+| **`useShadowDOM`** | `boolean` | `true` | `modal` / `toolbar` | 是否开启 Shadow DOM 样式隔离沙箱 |
+| **`apiKey`** | `string` | `""` | 全模式 | 可选 Gemini API Key，用于执行 AI 重构功能 |
+| **`rejectOnCancel`** | `boolean` | `true` | 全模式 | 用户点击【取消】时，Promise 是否抛出错误（若设为 `false` 则 resolve `null`） |
+| **`onComplete`** | `(res) => void` | `undefined` | 全模式 | 编辑完成时的回调通知函数 |
+| **`onCancel`** | `() => void` | `undefined` | 全模式 | 编辑取消时的回调通知函数 |
+
+---
+
+## 4. 三大接入方式详解与代码示例
+
+### 4.1 模式一：新开窗口（Modal）
+> **特点**：全功能独立弹窗。SDK 完整提供历史记录列表、顶部工具栏、居中缩放画布与底部 AI 对话框。最适合独立的修图流程。
+
+```html
+<button id="btn-modal">弹窗编辑图片</button>
+<img id="my-pic" src="avatar.png" width="200" />
+
+<script src="./dist/my-image-editor.umd.js"></script>
+<script>
+  document.getElementById('btn-modal').addEventListener('click', async () => {
+    try {
+      // 唤起全屏弹窗编辑：
+      const newBlob = await window.MyImageEditor.edit(document.getElementById('my-pic'), {
+        mode: 'modal',
+        outputType: 'blob',
+        apiKey: 'YOUR_GEMINI_API_KEY', // 可选
+      });
+      console.log('编辑完成，获得 Blob 对象:', newBlob);
+    } catch (e) {
+      console.log('用户取消了编辑');
+    }
+  });
+</script>
+```
+
+---
+
+### 4.2 模式二：原地编辑（Toolbar Popover）
+> **特点**：直接定位在传入的目标 `<img>` 或 `<canvas>` 节点上方，自动计算并吸附弹出浮动工具栏，且在目标元素上方覆盖一层微交互画布，用户无需离开当前页面上下文即可原地魔棒抠图、剪裁、着色或拉伸，点击【完成】后原图即刻原地更新。
+
+```html
+<div style="margin: 60px auto; width: 320px;">
+  <img id="target-photo" src="product.jpg" style="width: 100%; border-radius: 8px;" />
+  <button id="btn-inplace" style="margin-top: 10px;">吸附工具栏原地编辑</button>
+</div>
+
+<script src="./dist/my-image-editor.umd.js"></script>
+<script>
+  document.getElementById('btn-inplace').addEventListener('click', async () => {
+    const imgEl = document.getElementById('target-photo');
+
+    // 原地弹出浮动工具栏编辑：
+    const newImageBlob = await window.MyImageEditor.edit(imgEl, {
+      mode: 'toolbar',
+      autoUpdateTarget: true, // 核心属性：完成后自动更新 imgEl.src
+      outputType: 'blob'
+    });
+
+    console.log('原地编辑成功！');
+  });
+</script>
+```
+
+---
+
+### 4.3 模式三：分布式（Distributed）
+> **特点**：用于与宿主现有工程的复杂界面布局深度融合。宿主工程可以自己定义工具栏放在页面的哪个位置（如左侧固定栏、顶部固定导航栏），画布放在哪个区域（如中央主视图），SDK 将工具栏和画布分别传送挂载到两个容器中，两者底层共享同一份实时响应式数据流。
+
+```html
+<!-- 宿主界面自行排版的两个容器 -->
+<div class="custom-layout">
+  <div id="slot-toolbar" style="height: 48px; border: 1px solid #ccc; border-radius: 8px;">
+    <!-- SDK 工具栏将被渲染在此处 -->
+  </div>
+
+  <div id="slot-canvas" style="height: 500px; margin-top: 12px; border: 1px solid #ccc;">
+    <!-- SDK 画布将被渲染在此处 -->
+  </div>
+</div>
+
+<button id="btn-mount-dist">将编辑器挂载到预设布局</button>
+
+<script src="./dist/my-image-editor.umd.js"></script>
+<script>
+  document.getElementById('btn-mount-dist').addEventListener('click', async () => {
+    const result = await window.MyImageEditor.edit('https://example.com/banner.png', {
+      mode: 'distributed',
+      toolbarContainer: '#slot-toolbar', // 指定工具栏容器
+      canvasContainer: '#slot-canvas',   // 指定画布容器
+      outputType: 'base64'
+    });
+
+    console.log('分布式编辑完成，Base64 数据:', result);
+  });
+</script>
+```
+
+---
+
+## 5. 常见前端框架快速接入 (Vue 3 / React)
+
+### 5.1 Vue 3 接入示例
+```vue
+<template>
+  <div class="user-profile">
+    <img ref="avatarRef" :src="avatarUrl" class="avatar-preview" />
+    <div class="actions">
+      <button @click="editInModal">弹窗编辑</button>
+      <button @click="editInPlace">原地吸附编辑</button>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue';
+import { MyImageEditor } from 'my-image-editor-sdk'; // 或从本地 dist 引入
+
+const avatarUrl = ref('/images/default-avatar.png');
+const avatarRef = ref(null);
+
+// 方式 1：新开窗口弹窗编辑
+const editInModal = async () => {
+  try {
+    const blob = await MyImageEditor.edit(avatarUrl.value, {
+      mode: 'modal',
+      outputType: 'blob'
+    });
+    avatarUrl.value = URL.createObjectURL(blob);
+  } catch (err) {
+    console.log('用户取消操作');
+  }
+};
+
+// 方式 2：原地吸附浮动工具栏编辑
+const editInPlace = async () => {
+  if (!avatarRef.value) return;
+  await MyImageEditor.edit(avatarRef.value, {
+    mode: 'toolbar',
+    autoUpdateTarget: true, // 自动同步更新 DOM 节点的 src
+  });
+};
+</script>
+```
+
+### 5.2 React 接入示例
+```tsx
+import React, { useRef, useState } from 'react';
+import { MyImageEditor } from 'my-image-editor-sdk';
+
+export function ImageUploader() {
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [imgSrc, setImgSrc] = useState('/demo.jpg');
+
+  const handleInplaceEdit = async () => {
+    if (!imgRef.current) return;
+    try {
+      const resultBlob = await MyImageEditor.edit(imgRef.current, {
+        mode: 'toolbar',
+        outputType: 'blob',
+        autoUpdateTarget: true,
+      });
+      // 如果需要同步 React 状态：
+      setImgSrc(URL.createObjectURL(resultBlob as Blob));
+    } catch {
+      // 用户取消
+    }
+  };
+
+  return (
+    <div>
+      <img ref={imgRef} src={imgSrc} alt="Preview" style={{ width: 300, height: 200 }} />
+      <button onClick={handleInplaceEdit}>原地编辑此图</button>
+    </div>
+  );
+}
+```
+
+---
+
+## 6. 快捷静态方法一览
+
+为了让代码更语义化，SDK 提供了除 `.edit()` 外的静态捷径方法：
+
+```javascript
+// 1. 快捷弹窗模式
+MyImageEditor.modal(imageSource, { outputType: 'blob' });
+
+// 2. 快捷原地吸附模式
+MyImageEditor.toolbar(targetImageElement, { autoUpdateTarget: true });
+
+// 3. 快捷分布式模式
+MyImageEditor.distributed(toolbarSlotNode, canvasSlotNode, imageSource, options);
+```
