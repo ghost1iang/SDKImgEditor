@@ -199,6 +199,147 @@
       outline: none;
     }
 
+    /* 工具栏按钮显示配置测试面板样式 */
+    .toolbar-config-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 12px -2px rgba(0,0,0,0.04);
+    }
+    .toolbar-config-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid #f1f5f9;
+      margin-bottom: 1rem;
+    }
+    .config-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .config-badge-icon {
+      width: 38px;
+      height: 38px;
+      background: #eff6ff;
+      border: 1px solid #dbeafe;
+      border-radius: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      flex-shrink: 0;
+    }
+    .config-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    .config-subtitle {
+      font-size: 0.78rem;
+      color: #64748b;
+      margin-top: 0.15rem;
+    }
+    .config-subtitle code {
+      background: #f1f5f9;
+      padding: 0.1rem 0.35rem;
+      border-radius: 0.35rem;
+      font-family: monospace;
+      color: #2563eb;
+    }
+    .config-preset-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+    .tools-count-badge {
+      font-size: 0.75rem;
+      font-weight: 800;
+      background: #ecfdf5;
+      color: #059669;
+      border: 1px solid #a7f3d0;
+      padding: 0.25rem 0.6rem;
+      border-radius: 0.5rem;
+    }
+    .preset-btn {
+      padding: 0.35rem 0.7rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      border-radius: 0.5rem;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #334155;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .preset-btn:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+    .preset-btn.active {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #1d4ed8;
+      box-shadow: 0 2px 6px rgba(37,99,235,0.25);
+    }
+    .preset-btn.text-danger:hover {
+      color: #ef4444;
+      border-color: #fca5a5;
+    }
+    .toolbar-tools-groups {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+    }
+    .tools-group {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.85rem;
+      padding: 0.85rem;
+    }
+    .group-title {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.6rem;
+      padding-bottom: 0.35rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .group-items {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .tool-checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.4rem;
+      transition: all 0.12s;
+    }
+    .tool-checkbox-item:hover {
+      background: #e2e8f0;
+    }
+    .tool-checkbox-item input[type="checkbox"] {
+      cursor: pointer;
+      accent-color: #2563eb;
+      width: 14px;
+      height: 14px;
+    }
+
     /* 三大入口卡片网格 */
     .grid {
       display: grid;
@@ -491,6 +632,95 @@
       </div>
     </div>
 
+    <!-- 工具栏按钮预设测试面板 (接 SDK 前配置测试) -->
+    <div class="toolbar-config-card">
+      <div class="toolbar-config-header">
+        <div class="config-title-wrap">
+          <div class="config-badge-icon">🛠️</div>
+          <div>
+            <div class="config-title">工具栏按钮显示配置测试 (Toolbar Tools Visibility)</div>
+            <div class="config-subtitle">在唤起 SDK 前预设 <code>visibleTools</code> 参数，测试各模式下工具栏按钮的按需显示/隐藏；唤起后也可在工具栏点击【设置】浮窗进行实时勾选。</div>
+          </div>
+        </div>
+        <div class="config-preset-actions">
+          <span class="tools-count-badge" id="tools-selected-count">已选: 22/22</span>
+          <button type="button" class="preset-btn active" id="btn-preset-all">全部显示</button>
+          <button type="button" class="preset-btn" id="btn-preset-recommend">常用推荐 (12)</button>
+          <button type="button" class="preset-btn" id="btn-preset-cutout">纯抠图 (8)</button>
+          <button type="button" class="preset-btn" id="btn-preset-transform">几何与旋转 (7)</button>
+          <button type="button" class="preset-btn text-danger" id="btn-preset-clear">清空</button>
+        </div>
+      </div>
+
+      <!-- 分组选择标签网格 -->
+      <div class="toolbar-tools-groups" id="toolbar-tools-selector">
+        <!-- 分类 1: 选区工具 -->
+        <div class="tools-group">
+          <div class="group-title">选区工具</div>
+          <div class="group-items">
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="rect" checked /><span>矩形范围</span></label>
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="cropAuto" checked /><span>智能修边</span></label>
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="lasso" checked /><span>索套范围</span></label>
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="quad" checked /><span>多边范围</span></label>
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="invert" checked /><span>反选选区</span></label>
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="clear" checked /><span>清除选区</span></label>
+          </div>
+        </div>
+
+        <!-- 分类 2: 抠图魔棒 -->
+        <div class="tools-group">
+          <div class="group-title">抠图魔棒</div>
+          <div class="group-items">
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="alphaMask" checked /><span>透明检测</span></label>
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="wand" checked /><span>魔棒选色</span></label>
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="wandMode" checked /><span>全屏/连通</span></label>
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="tolerance" checked /><span>容差调节</span></label>
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="erase" checked /><span>橡皮擦除</span></label>
+          </div>
+        </div>
+
+        <!-- 分类 3: 色彩吸管 -->
+        <div class="tools-group">
+          <div class="group-title">色彩吸管</div>
+          <div class="group-items">
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="colorPicker" checked /><span>调色板</span></label>
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="pipette" checked /><span>吸管取色</span></label>
+          </div>
+        </div>
+
+        <!-- 分类 4: 选区操作 -->
+        <div class="tools-group">
+          <div class="group-title">选区操作</div>
+          <div class="group-items">
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="crop" checked /><span>按区剪裁</span></label>
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="fill" checked /><span>选区着色</span></label>
+          </div>
+        </div>
+
+        <!-- 分类 5: 旋转镜像 -->
+        <div class="tools-group">
+          <div class="group-title">旋转镜像</div>
+          <div class="group-items">
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="flipH" checked /><span>水平镜像</span></label>
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="flipV" checked /><span>垂直镜像</span></label>
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="rotateCcw" checked /><span>逆时针90°</span></label>
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="rotateCw" checked /><span>顺时针90°</span></label>
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="rotateAny" checked /><span>自由旋转</span></label>
+          </div>
+        </div>
+
+        <!-- 分类 6: 通用辅助 -->
+        <div class="tools-group">
+          <div class="group-title">辅助功能</div>
+          <div class="group-items">
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="download" checked /><span>保存下载</span></label>
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="upload" checked /><span>重新上传</span></label>
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="settings" checked /><span>工具栏设置</span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 三大入口展示区 -->
     <div class="grid">
       <!-- 入口 1：新开窗口（Modal） -->
@@ -671,13 +901,97 @@
       window.location.reload();
     });
 
-    // 读取全局调试配置
+    // 工具栏预设测试逻辑
+    const ALL_TOOLS = [
+      'rect', 'cropAuto', 'lasso', 'quad', 'invert', 'clear',
+      'alphaMask', 'wand', 'wandMode', 'tolerance', 'erase',
+      'colorPicker', 'pipette', 'crop', 'fill',
+      'flipH', 'flipV', 'rotateCcw', 'rotateCw', 'rotateAny',
+      'download', 'upload', 'settings'
+    ];
+    const RECOMMEND_TOOLS = [
+      'rect', 'cropAuto', 'wand', 'tolerance', 'erase', 
+      'colorPicker', 'pipette', 'crop', 'rotateCw', 'rotateAny', 
+      'download', 'settings'
+    ];
+    const CUTOUT_TOOLS = [
+      'alphaMask', 'wand', 'wandMode', 'tolerance', 'erase', 
+      'crop', 'download', 'settings'
+    ];
+    const TRANSFORM_TOOLS = [
+      'rect', 'cropAuto', 'quad', 'flipH', 'flipV', 'rotateCcw', 
+      'rotateCw', 'rotateAny', 'settings'
+    ];
+
+    function applyToolPresets(toolList) {
+      const set = new Set(toolList);
+      document.querySelectorAll('.tool-config-checkbox').forEach(cb => {
+        cb.checked = set.has(cb.value);
+      });
+      updateSelectedCount();
+    }
+
+    function updateSelectedCount() {
+      const checked = document.querySelectorAll('.tool-config-checkbox:checked');
+      const badge = document.getElementById('tools-selected-count');
+      if (badge) {
+        badge.textContent = `已选: ${checked.length}/${ALL_TOOLS.length}`;
+      }
+    }
+
+    function setActivePresetBtn(btn) {
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+    }
+
+    document.getElementById('btn-preset-all').addEventListener('click', (e) => {
+      applyToolPresets(ALL_TOOLS);
+      setActivePresetBtn(e.currentTarget);
+      addLog('[配置]', `工具栏预设为【全部显示】(${ALL_TOOLS.length} 个按钮)`);
+    });
+
+    document.getElementById('btn-preset-recommend').addEventListener('click', (e) => {
+      applyToolPresets(RECOMMEND_TOOLS);
+      setActivePresetBtn(e.currentTarget);
+      addLog('[配置]', `工具栏预设为【常用推荐】(${RECOMMEND_TOOLS.length} 个按钮)`);
+    });
+
+    document.getElementById('btn-preset-cutout').addEventListener('click', (e) => {
+      applyToolPresets(CUTOUT_TOOLS);
+      setActivePresetBtn(e.currentTarget);
+      addLog('[配置]', `工具栏预设为【纯抠图方案】(${CUTOUT_TOOLS.length} 个按钮)`);
+    });
+
+    document.getElementById('btn-preset-transform').addEventListener('click', (e) => {
+      applyToolPresets(TRANSFORM_TOOLS);
+      setActivePresetBtn(e.currentTarget);
+      addLog('[配置]', `工具栏预设为【几何与旋转】(${TRANSFORM_TOOLS.length} 个按钮)`);
+    });
+
+    document.getElementById('btn-preset-clear').addEventListener('click', (e) => {
+      applyToolPresets(['settings']); // 保留设置按钮避免无法打开
+      setActivePresetBtn(e.currentTarget);
+      addLog('[配置]', '工具栏已清空（仅保留工具栏设置）');
+    });
+
+    document.querySelectorAll('.tool-config-checkbox').forEach(cb => {
+      cb.addEventListener('change', () => {
+        updateSelectedCount();
+        setActivePresetBtn(null);
+      });
+    });
+
+    // 读取全局调试配置 (支持 visibleTools 预设)
     function getEditorOptions() {
+      const checkedBoxes = document.querySelectorAll('.tool-config-checkbox:checked');
+      const visibleTools = Array.from(checkedBoxes).map(cb => cb.value);
+
       return {
         outputType: document.getElementById('cfg-output').value,
         useShadowDOM: document.getElementById('cfg-shadow').value === 'true',
         apiKey: document.getElementById('cfg-key').value.trim(),
-        rejectOnCancel: false, // 取消时 resolve(null) 方便演示
+        visibleTools: visibleTools, // 预设可见按钮列表
+        rejectOnCancel: false,      // 取消时 resolve(null) 方便演示
       };
     }
 

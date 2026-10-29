@@ -4,10 +4,14 @@ import { useImageEditorCore, CoreOptions } from '../core/useImageEditorCore';
 import { Toolbar } from '../components/Toolbar';
 import { CanvasWorkspace } from '../components/CanvasWorkspace';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { ToolbarToolId } from '../types/toolbar';
 
 export interface DistributedEditorProps extends CoreOptions {
   toolbarContainer: HTMLElement | string;
   canvasContainer: HTMLElement | string;
+  tools?: ToolbarToolId[] | Record<string, boolean>;
+  visibleTools?: ToolbarToolId[];
+  hiddenTools?: ToolbarToolId[];
   onFinish?: () => void;
   onCancel?: () => void;
 }
@@ -50,6 +54,9 @@ export const DistributedEditor: React.FC<DistributedEditorProps> = (props) => {
             mode="distributed" 
             showComplete={true} 
             showCancel={true} 
+            tools={props.tools}
+            visibleTools={props.visibleTools}
+            hiddenTools={props.hiddenTools}
             onFinish={props.onFinish} 
             onCancel={props.onCancel} 
           />

@@ -3,9 +3,13 @@ import { useImageEditorCore, CoreOptions } from '../core/useImageEditorCore';
 import { Toolbar } from '../components/Toolbar';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { Loader2 } from 'lucide-react';
+import { ToolbarToolId } from '../types/toolbar';
 
 export interface ToolbarPopoverEditorProps extends CoreOptions {
   targetElement: HTMLElement;
+  tools?: ToolbarToolId[] | Record<string, boolean>;
+  visibleTools?: ToolbarToolId[];
+  hiddenTools?: ToolbarToolId[];
   onFinish?: () => void;
   onCancel?: () => void;
 }
@@ -87,6 +91,9 @@ export const ToolbarPopoverEditor: React.FC<ToolbarPopoverEditorProps> = (props)
           mode="toolbar" 
           showComplete={true} 
           showCancel={true} 
+          tools={props.tools}
+          visibleTools={props.visibleTools}
+          hiddenTools={props.hiddenTools}
           onFinish={props.onFinish} 
           onCancel={props.onCancel} 
         />

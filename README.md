@@ -19,10 +19,13 @@
    - 🧩 **分布式（Distributed 模式）**：分别在宿主工程中指定工具栏放置容器 (`toolbarContainer`) 和画布容器 (`canvasContainer`)，两者分离挂载并实时同步联动。
 4. **统一 Promise 异步返回**：
    用户点击【完成】后，Promise 自动 resolve 返回新处理后的图片（支持 `Blob` / `Base64` / `HTMLCanvasElement`）。
-5. **全新自适应浅色毛玻璃旋转面板 (v1.4.2)**：
+5. **全新自适应浅色毛玻璃旋转面板**：
    重构为自适应主题浮窗，支持 -180°~+180° 滑块无级微调、度数精准打字输入、`[-1°]` / `[+1°]` 极细粒度校平步进、常用快捷预设与画布实时旋转联动。
 6. **全自动智能去色边 (Zero-Click De-spill)**：
    魔棒抠图擦除时内置全色相智能去溢色算法，擦除背景时全自动消除边缘杂色光，无需手动切换开关。
+7. **工具栏动态定制与参数化配置 (v1.5.0)**：
+   - **运行时浮窗设置**：工具栏内置齿轮【设置】按钮，展开自适应毛玻璃面板实时勾选显示/隐藏 22 个按钮；
+   - **接入前预设参数**：提供 `visibleTools` / `hiddenTools` / `tools` 参数，支持按业务场景自由裁剪工具栏按钮。
 
 ---
 
@@ -118,8 +121,9 @@ const resultBlob = await TiamoImageEditor.edit(sourceImage, {
 
 ## 🛠 API 配置项 `EditOptions`
 
-| 参数名 | 类型 | 默认值 | 说明 |
-| :--- | :--- | :--- | :--- |
+| `visibleTools` | `ToolbarToolId[]` | `undefined` (全显) | 按钮白名单：指定默认显示的按钮 ID 列表 |
+| `hiddenTools` | `ToolbarToolId[]` | `undefined` | 按钮黑名单：指定默认隐藏的按钮 ID 列表 |
+| `tools` | `ToolbarToolId[] \| Record<string, boolean>` | `undefined` | 灵活配置按钮显隐字典或数组 |
 | `mode` | `'modal' \| 'toolbar' \| 'distributed'` | `'modal'` | 编辑器模式 |
 | `outputType` | `'blob' \| 'base64' \| 'canvas'` | `'blob'` | 完成后的返回值类型 |
 | `autoUpdateTarget` | `boolean` | `true` | 若传入目标为 `HTMLImageElement`，是否自动将新图写入其 `src` |

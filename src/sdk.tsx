@@ -5,13 +5,16 @@ import { ModalEditor } from './modes/ModalEditor';
 import { ToolbarPopoverEditor } from './modes/ToolbarPopoverEditor';
 import { DistributedEditor } from './modes/DistributedEditor';
 import { SDK_VERSION, SDK_BUILD_TIME, SDK_DESCRIPTION } from './version';
+import { ToolbarToolId } from './types/toolbar';
 
 export type EditorMode = 'modal' | 'toolbar' | 'distributed';
 export type OutputType = 'blob' | 'base64' | 'canvas';
 
 export interface EditOptions {
   mode?: EditorMode;
-  tools?: string[];
+  tools?: ToolbarToolId[] | Record<string, boolean>;
+  visibleTools?: ToolbarToolId[];
+  hiddenTools?: ToolbarToolId[];
   toolbarContainer?: HTMLElement | string;
   canvasContainer?: HTMLElement | string;
   apiKey?: string;
@@ -150,6 +153,9 @@ export class TiamoImageEditor {
             targetElement={targetElement}
             initialImage={initialImage}
             apiKey={apiKey}
+            tools={options.tools}
+            visibleTools={options.visibleTools}
+            hiddenTools={options.hiddenTools}
             onComplete={handleDone}
             onCancel={handleCancel}
           />
@@ -169,6 +175,9 @@ export class TiamoImageEditor {
             canvasContainer={options.canvasContainer}
             initialImage={initialImage}
             apiKey={apiKey}
+            tools={options.tools}
+            visibleTools={options.visibleTools}
+            hiddenTools={options.hiddenTools}
             onComplete={handleDone}
             onCancel={handleCancel}
           />
@@ -179,6 +188,9 @@ export class TiamoImageEditor {
           <ModalEditor
             initialImage={initialImage}
             apiKey={apiKey}
+            tools={options.tools}
+            visibleTools={options.visibleTools}
+            hiddenTools={options.hiddenTools}
             onComplete={handleDone}
             onCancel={handleCancel}
           />

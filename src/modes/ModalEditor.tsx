@@ -6,7 +6,12 @@ import { Sidebar } from '../components/Sidebar';
 import { FooterPrompt } from '../components/FooterPrompt';
 import { ConfirmModal } from '../components/ConfirmModal';
 
+import { ToolbarToolId } from '../types/toolbar';
+
 export interface ModalEditorProps extends CoreOptions {
+  tools?: ToolbarToolId[] | Record<string, boolean>;
+  visibleTools?: ToolbarToolId[];
+  hiddenTools?: ToolbarToolId[];
   onFinish?: () => void;
   onCancel?: () => void;
 }
@@ -28,6 +33,9 @@ export const ModalEditor: React.FC<ModalEditorProps> = (props) => {
             mode="modal" 
             showComplete={true} 
             showCancel={true} 
+            tools={props.tools}
+            visibleTools={props.visibleTools}
+            hiddenTools={props.hiddenTools}
             onFinish={props.onFinish} 
             onCancel={props.onCancel} 
           />

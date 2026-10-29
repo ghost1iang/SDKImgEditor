@@ -12,6 +12,7 @@ export { useImageEditorCore } from './core/useImageEditorCore';
 export type { ImageEditorCore, HistoryRecord, Point, SelectionRegion } from './core/useImageEditorCore';
 
 export { Toolbar } from './components/Toolbar';
+export { ToolbarSettingsPopover } from './components/ToolbarSettingsPopover';
 export { CanvasWorkspace } from './components/CanvasWorkspace';
 export { Sidebar } from './components/Sidebar';
 export { FooterPrompt } from './components/FooterPrompt';
@@ -20,6 +21,9 @@ export { ConfirmModal } from './components/ConfirmModal';
 export { ModalEditor } from './modes/ModalEditor';
 export { ToolbarPopoverEditor } from './modes/ToolbarPopoverEditor';
 export { DistributedEditor } from './modes/DistributedEditor';
+
+export type { ToolbarToolId, ToolbarToolDef, ToolbarCategoryDef, ToolbarCategoryKey } from './types/toolbar';
+export { ALL_TOOLBAR_TOOLS, DEFAULT_VISIBLE_TOOL_IDS, resolveVisibleTools } from './types/toolbar';
 
 import { SDK_VERSION, SDK_BUILD_TIME, SDK_DESCRIPTION } from './version';
 export { SDK_VERSION, SDK_BUILD_TIME, SDK_DESCRIPTION };
