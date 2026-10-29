@@ -1,6 +1,6 @@
-# MyImageEditor SDK 说明书
+# TiamoImageEditor SDK 说明书
 
-本说明书详细介绍 **MyImageEditor SDK** 的系统架构、实现原理、功能特性、配置参数及在不同前端框架下的接入实践。
+本说明书详细介绍 **TiamoImageEditor SDK** 的系统架构、实现原理、功能特性、配置参数及在不同前端框架下的接入实践。
 
 ---
 
@@ -13,12 +13,14 @@
    - [4.2 模式二：原地编辑（Toolbar Popover）](#42-模式二原地编辑toolbar-popover)
    - [4.3 模式三：分布式（Distributed）](#43-模式三分布式distributed)
 5. [常见前端框架快速接入 (Vue 3 / React)](#5-常见前端框架快速接入-vue-3--react)
+6. [快捷静态方法一览](#6-快捷静态方法一览)
+7. [最近版本演进与关键变更记录 (Change Log)](#7-最近版本演进与关键变更记录-change-log)
 
 ---
 
 ## 1. 系统架构与实现原理
 
-MyImageEditor SDK 旨在将复杂的图像编辑组件转变为一个**零依赖、低耦合、即插即用**的现代 JavaScript 库。
+TiamoImageEditor SDK 旨在将复杂的图像编辑组件转变为一个**零依赖、低耦合、即插即用**的现代 JavaScript 库。
 
 ### 1.1 零框架依赖独立单文件打包
 - **内置完整运行时**：打包配置使用 Vite 与 Rollup，将 React 18 运行时、ReactDOM、Lucide 图标组件库以及编译后的 Tailwind CSS 样式全部静态打包进单文件（`dist/my-image-editor.umd.js` 与 `dist/my-image-editor.es.js`）。
@@ -29,7 +31,7 @@ MyImageEditor SDK 旨在将复杂的图像编辑组件转变为一个**零依赖
 - **双向无干扰**：SDK 内置的 Tailwind 工具类与定制样式只在当前 Shadow DOM 生效，不会污染宿主应用的全局 CSS；同时宿主应用的 CSS 规则也不会破坏编辑器的 UI 排版与布局。
 
 ### 1.3 Promise 异步闭环工作流
-- 整个编辑过程被封装为一个标准异步函数：`const result = await MyImageEditor.edit(target, options);`。
+- 整个编辑过程被封装为一个标准异步函数：`const result = await TiamoImageEditor.edit(target, options);`。
 - 用户操作完成后，点击右上角绿色的【完成】按钮，SDK 内部捕获当前最新的高分辨率 Canvas 数据，自动将其转换为用户指定的格式（`Blob`、`Base64` 或 `HTMLCanvasElement`）并触发 Promise 的 `resolve`。
 - 完成或取消时，SDK 自动清理 Shadow DOM 与监听器，释放内存，保证宿主页面无 DOM 残留。
 
@@ -49,12 +51,14 @@ SDK 拥有全套专业图像处理与 AI 能力：
 | **套索选区** | `Pencil` | 鼠标手绘闭合路径，自动生成多边形遮罩与高亮提示。 |
 | **反转选区** | `FlipHorizontal` | 一键反转当前选区范围，实现内外像素的快速反转保护。 |
 | **透明检测** | `Eye` | 切换透明区域检测底纹（红白点阵），精准识别 Alpha 通道。 |
-| **智能魔棒** | `Eraser` | 支持**全屏色彩匹配**与**连通区域 BFS 漫水填充**两种模式；容差度可在 1~255 范围内精确平滑调节。 |
+| **智能魔棒** | `Wand2` + `Eraser` | 支持**全屏色彩匹配**与**连通区域 BFS 漫水填充**两种模式；容差度可在 1~255 范围内精确平滑调节。**内置全色相智能去溢色算法（Universal De-spill）**，擦除时默认自动消除背景杂色光，无需手动切换。 |
 | **智能修边** | `Crop` | 自动扫描图像中非透明像素的外接边界框，智能去多余留白。 |
 | **顶点拉伸** | `LandPlot` | 激活图像四角 4 个控制锚点，支持自由不规则透视剪裁与拉伸（按住 Shift/Cmd 可锁定水平/垂直轴）。 |
 | **吸管取色** | `Pipette` | 实时拾取画布任意坐标的像素 RGB 并转为十六进制色值。 |
 | **选区着色** | `PaintBucket` | 将当前吸管选中的色彩批量填充到魔棒选区或矩形闭合区域内。 |
-| **旋转变换** | `RotateCw` | 支持角度数值输入及 -180°~180° 滑块无级微调，自动计算旋转后的全新外接画布尺寸。 |
+| **镜像翻转** | `FlipHorizontal2` / `FlipVertical2` | 支持水平镜像与垂直镜像一键对称翻转。 |
+| **快捷90°旋转** | `RotateCcw` / `RotateCw` | 逆时针 90° 与顺时针 90° 一键正角旋转。 |
+| **自由旋转校正** | `Compass` | **全新重构的高级毛玻璃浮窗面板**（自适应浅色/深色主题），支持 -180°~+180° 滑块平滑无级调节、精确度数输入、`[-1°]` / `[+1°]` 摄影级细微校平步进、常用刻度快捷直达，画布实时同步旋转预览。 |
 | **PDF 导入** | 文件上传选择 | 动态按需加载 PDF.js 解析引擎，将 PDF 第一页按 2x 高清视口渲染转换为编辑画布。 |
 | **AI 图像重构** | 底部 Prompt 输入框 | 接入 Gemini 2.5 Flash Image Preview 接口，支持输入文本指令进行图像结构化修改与重构。 |
 | **历史版本栈** | 左侧折叠边栏 | 记录每一次编辑操作快照与缩略图，支持回滚并提供新分支开启确认弹窗。 |
@@ -64,7 +68,7 @@ SDK 拥有全套专业图像处理与 AI 能力：
 
 ## 3. SDK 参数配置表
 
-调用方法：`MyImageEditor.edit(targetOrSource, options)`
+调用方法：`TiamoImageEditor.edit(targetOrSource, options)`
 
 ### 3.1 入参 `targetOrSource`
 | 参数类型 | 示例 | 说明 |
@@ -105,7 +109,7 @@ SDK 拥有全套专业图像处理与 AI 能力：
   document.getElementById('btn-modal').addEventListener('click', async () => {
     try {
       // 唤起全屏弹窗编辑：
-      const newBlob = await window.MyImageEditor.edit(document.getElementById('my-pic'), {
+      const newBlob = await window.TiamoImageEditor.edit(document.getElementById('my-pic'), {
         mode: 'modal',
         outputType: 'blob',
         apiKey: 'YOUR_GEMINI_API_KEY', // 可选
@@ -135,7 +139,7 @@ SDK 拥有全套专业图像处理与 AI 能力：
     const imgEl = document.getElementById('target-photo');
 
     // 原地弹出浮动工具栏编辑：
-    const newImageBlob = await window.MyImageEditor.edit(imgEl, {
+    const newImageBlob = await window.TiamoImageEditor.edit(imgEl, {
       mode: 'toolbar',
       autoUpdateTarget: true, // 核心属性：完成后自动更新 imgEl.src
       outputType: 'blob'
@@ -168,7 +172,7 @@ SDK 拥有全套专业图像处理与 AI 能力：
 <script src="./dist/my-image-editor.umd.js"></script>
 <script>
   document.getElementById('btn-mount-dist').addEventListener('click', async () => {
-    const result = await window.MyImageEditor.edit('https://example.com/banner.png', {
+    const result = await window.TiamoImageEditor.edit('https://example.com/banner.png', {
       mode: 'distributed',
       toolbarContainer: '#slot-toolbar', // 指定工具栏容器
       canvasContainer: '#slot-canvas',   // 指定画布容器
@@ -198,7 +202,7 @@ SDK 拥有全套专业图像处理与 AI 能力：
 
 <script setup>
 import { ref } from 'vue';
-import { MyImageEditor } from 'my-image-editor-sdk'; // 或从本地 dist 引入
+import { TiamoImageEditor } from 'my-image-editor-sdk'; // 或从本地 dist 引入
 
 const avatarUrl = ref('/images/default-avatar.png');
 const avatarRef = ref(null);
@@ -206,7 +210,7 @@ const avatarRef = ref(null);
 // 方式 1：新开窗口弹窗编辑
 const editInModal = async () => {
   try {
-    const blob = await MyImageEditor.edit(avatarUrl.value, {
+    const blob = await TiamoImageEditor.edit(avatarUrl.value, {
       mode: 'modal',
       outputType: 'blob'
     });
@@ -219,7 +223,7 @@ const editInModal = async () => {
 // 方式 2：原地吸附浮动工具栏编辑
 const editInPlace = async () => {
   if (!avatarRef.value) return;
-  await MyImageEditor.edit(avatarRef.value, {
+  await TiamoImageEditor.edit(avatarRef.value, {
     mode: 'toolbar',
     autoUpdateTarget: true, // 自动同步更新 DOM 节点的 src
   });
@@ -230,7 +234,7 @@ const editInPlace = async () => {
 ### 5.2 React 接入示例
 ```tsx
 import React, { useRef, useState } from 'react';
-import { MyImageEditor } from 'my-image-editor-sdk';
+import { TiamoImageEditor } from 'my-image-editor-sdk';
 
 export function ImageUploader() {
   const imgRef = useRef<HTMLImageElement>(null);
@@ -239,7 +243,7 @@ export function ImageUploader() {
   const handleInplaceEdit = async () => {
     if (!imgRef.current) return;
     try {
-      const resultBlob = await MyImageEditor.edit(imgRef.current, {
+      const resultBlob = await TiamoImageEditor.edit(imgRef.current, {
         mode: 'toolbar',
         outputType: 'blob',
         autoUpdateTarget: true,
@@ -268,11 +272,34 @@ export function ImageUploader() {
 
 ```javascript
 // 1. 快捷弹窗模式
-MyImageEditor.modal(imageSource, { outputType: 'blob' });
+TiamoImageEditor.modal(imageSource, { outputType: 'blob' });
 
 // 2. 快捷原地吸附模式
-MyImageEditor.toolbar(targetImageElement, { autoUpdateTarget: true });
+TiamoImageEditor.toolbar(targetImageElement, { autoUpdateTarget: true });
 
 // 3. 快捷分布式模式
-MyImageEditor.distributed(toolbarSlotNode, canvasSlotNode, imageSource, options);
+TiamoImageEditor.distributed(toolbarSlotNode, canvasSlotNode, imageSource, options);
 ```
+
+---
+
+## 7. 最近版本演进与关键变更记录 (Change Log)
+
+### v1.4.2 (当前版本)
+- **🚀 旋转浮窗架构彻底重构 (Rotation Popover)**：
+  - **根治裁剪问题**：将浮窗从工具栏内部子容器移至工具栏根容器渲染，彻底解决在 `overflow-x-auto` 下被截断截胡的顽疾。
+  - **剔除冗余代码**：彻底删除 240+ 行晦涩脆弱的 SVG 罗盘圆盘算法、三角函数计算与全局事件监听；
+  - **杜绝 Portal 样式脱离**：坚决不向 `document.body` 跨 Shadow DOM 进行 Portal 挂载，完全保留在组件树内，100% 享受 ShadowRoot 内的高质感样式；
+  - **交互与功能丰富**：支持数值精准键盘打字输入、`[-1°]` / `[+1°]` 极细粒度校平步进、无级滑动条（-180°~+180°）、快捷刻度跳转与中心指示小指针。
+- **🎨 界面配色升级（自适应浅色毛玻璃）**：
+  - 彻底废除突兀的暗黑色硬编码配色；
+  - 在全屏弹窗与分布式白底工具栏下，自动应用**现代高质感浅色毛玻璃**（`bg-white/95 backdrop-blur-xl border-slate-200 shadow-2xl`），与编辑器主体清爽风格浑然一体；
+  - 在吸附工具栏（`isCompact`）深色胶囊条下，保持深色主题自适应。
+- **✨ 智能去色边全自动化 (Zero-Click De-spill)**：
+  - 从工具栏中移除多余独立的“去色边”按钮，为工具栏释放大量横向排版空间；
+  - 在魔棒抠图擦除算法中，**默认 100% 全自动开启全色相智能去溢色算法**，擦除时后台自动净化边缘残留杂光，无需用户手动寻找或开启开关。
+- **⚡ 编译与热更死锁根治**：
+  - 修复 `vite.config.ts` 中全局注入 `process.env.NODE_ENV=production` 导致本地开发环境 React Refresh 崩溃的致命缺陷，改为仅在 `build` 生产打包时注入；
+  - 修复 `index.html` 的模块入口加载机制，采用标准的静态 ESM 入口，让 Vite 自动保障 React Refresh Preamble 依赖链。
+- **📦 版本统一收敛**：
+  - 全局版本号收敛至 `src/version.ts` 单一信任源，彻底杜绝多处硬编码版本号相互覆盖的问题。

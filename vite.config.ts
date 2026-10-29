@@ -20,7 +20,7 @@ export default defineConfig(({ command }) => ({
   build: {
     lib: {
       entry: path.resolve(__dirname, 'src/index.ts'),
-      name: 'MyImageEditor',
+      name: 'TiamoImageEditor',
       fileName: (format) => `my-image-editor.${format}.js`,
       formats: ['es', 'umd'],
     },

@@ -8,5 +8,6 @@ declare module '*.css?inline' {
 interface Window {
   pdfjsLib?: any;
   GEMINI_API_KEY?: string;
+  TiamoImageEditor?: any;
   MyImageEditor?: any;
 }

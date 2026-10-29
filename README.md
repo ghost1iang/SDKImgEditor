@@ -1,4 +1,4 @@
-# MyImageEditor SDK
+# TiamoImageEditor SDK
 
 基于《AI图片编辑器.tsx》全量核心功能封装的**零框架依赖独立图片编辑 SDK**。
 所有核心算法代码（魔棒 BFS 选色、顶点拉伸、套索、透明检测、智能修边裁切、取色涂色、旋转变换、PDF.js 高清导入、Gemini AI 重构）100% 完整保留。
@@ -19,14 +19,18 @@
    - 🧩 **分布式（Distributed 模式）**：分别在宿主工程中指定工具栏放置容器 (`toolbarContainer`) 和画布容器 (`canvasContainer`)，两者分离挂载并实时同步联动。
 4. **统一 Promise 异步返回**：
    用户点击【完成】后，Promise 自动 resolve 返回新处理后的图片（支持 `Blob` / `Base64` / `HTMLCanvasElement`）。
+5. **全新自适应浅色毛玻璃旋转面板 (v1.4.2)**：
+   重构为自适应主题浮窗，支持 -180°~+180° 滑块无级微调、度数精准打字输入、`[-1°]` / `[+1°]` 极细粒度校平步进、常用快捷预设与画布实时旋转联动。
+6. **全自动智能去色边 (Zero-Click De-spill)**：
+   魔棒抠图擦除时内置全色相智能去溢色算法，擦除背景时全自动消除边缘杂色光，无需手动切换开关。
 
 ---
 
 ## 📦 打包产物
 
 执行构建后在 `dist/` 目录下生成：
-- `dist/my-image-editor.umd.js`：适合 `<script src="...">` 直接在浏览器中引入（挂载全局对象 `window.MyImageEditor`）。
-- `dist/my-image-editor.es.js`：适合现代前端工程 `import { MyImageEditor } from '...'`。
+- `dist/my-image-editor.umd.js`：适合 `<script src="...">` 直接在浏览器中引入（挂载全局对象 `window.TiamoImageEditor`，同时兼容 `window.MyImageEditor`）。
+- `dist/my-image-editor.es.js`：适合现代前端工程 `import { TiamoImageEditor } from '...'`。
 - `dist/types/`：TypeScript 完整类型声明定义。
 
 ---
@@ -47,7 +51,7 @@
     const imgEl = document.getElementById('my-avatar');
 
     // 一行代码唤起原地编辑（或弹窗编辑）：
-    const newBlob = await window.MyImageEditor.edit(imgEl, {
+    const newBlob = await window.TiamoImageEditor.edit(imgEl, {
       mode: 'toolbar', // 'modal' | 'toolbar' | 'distributed'
       outputType: 'blob'
     });
@@ -60,10 +64,10 @@
 ### 2. Vue / React 工程中使用
 
 ```javascript
-import { MyImageEditor } from './dist/my-image-editor.es.js';
+import { TiamoImageEditor } from './dist/my-image-editor.es.js';
 
 // 在任何点击事件中调用：
-const newImageBlob = await MyImageEditor.edit(targetImageElement, {
+const newImageBlob = await TiamoImageEditor.edit(targetImageElement, {
   mode: 'modal',       // 'modal'（弹窗编辑） 或 'toolbar'（直接吸附在目标图片旁弹出工具栏）
   outputType: 'blob',  // 'blob' | 'base64' | 'canvas'
   autoUpdateTarget: true, // 自动把新图赋值给 targetImageElement.src
@@ -79,7 +83,7 @@ targetImageElement.src = URL.createObjectURL(newImageBlob);
 
 ### 模式一：新开窗口（Modal）
 ```javascript
-const resultBlob = await MyImageEditor.edit(sourceImage, {
+const resultBlob = await TiamoImageEditor.edit(sourceImage, {
   mode: 'modal',
   outputType: 'blob'
 });
@@ -90,7 +94,7 @@ const resultBlob = await MyImageEditor.edit(sourceImage, {
 
 ### 模式二：原地编辑（Toolbar Popover）
 ```javascript
-const resultBlob = await MyImageEditor.edit(document.getElementById('my-image'), {
+const resultBlob = await TiamoImageEditor.edit(document.getElementById('my-image'), {
   mode: 'toolbar',
   autoUpdateTarget: true // 完成后原地自动将新图片赋值给 my-image.src
 });
@@ -101,7 +105,7 @@ const resultBlob = await MyImageEditor.edit(document.getElementById('my-image'),
 
 ### 模式三：分布式（Distributed）
 ```javascript
-const resultBlob = await MyImageEditor.edit(sourceImage, {
+const resultBlob = await TiamoImageEditor.edit(sourceImage, {
   mode: 'distributed',
   toolbarContainer: '#my-toolbar-slot', // 宿主界面中工具栏挂载节点或选择器
   canvasContainer: '#my-canvas-slot',   // 宿主界面中画布挂载节点或选择器
@@ -141,3 +145,11 @@ const resultBlob = await MyImageEditor.edit(sourceImage, {
   ```bash
   npm run build
   ```
+
+---
+
+## 📝 最近更新 (v1.4.2)
+- **重构自由旋转控制浮窗**：彻底根治工具栏内部 `overflow-x-auto` 裁剪截断问题，剔除冗余 SVG 罗盘代码，升级为清爽高质感的白底毛玻璃卡片（支持精确打字输入、`[-1°]` / `[+1°]` 极细微调、滑块与快捷刻度）。
+- **智能去色边全自动开启**：移除工具栏多余独立按钮，魔棒擦除背景时全自动消除残留溢色。
+- **修复本地开发编译环境死锁**：修复 `vite.config.ts` 中的 `process.env.NODE_ENV` 生产宏定义，根治 React Refresh 报错与模块缓存滞留问题。
+- **单一版本信任源**：统一收敛全局版本号至 `src/version.ts`。

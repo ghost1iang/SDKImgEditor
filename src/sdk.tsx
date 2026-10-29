@@ -29,7 +29,7 @@ export interface EditResult {
   canvas: HTMLCanvasElement;
 }
 
-export class MyImageEditor {
+export class TiamoImageEditor {
   static version = SDK_VERSION;
   static buildTime = SDK_BUILD_TIME;
   static description = SDK_DESCRIPTION;
@@ -217,20 +217,23 @@ export class MyImageEditor {
 // 挂载到全局 window 对象，供 script 标签直引
 if (typeof window !== 'undefined') {
   const g = window as any;
-  if (!g.MyImageEditor) {
-    g.MyImageEditor = MyImageEditor;
-  }
-  // 确保不管在任何时机，window.MyImageEditor.edit 都可以被调用
-  Object.assign(MyImageEditor, {
-    edit: MyImageEditor.edit,
-    modal: MyImageEditor.modal,
-    toolbar: MyImageEditor.toolbar,
-    distributed: MyImageEditor.distributed,
+  g.TiamoImageEditor = TiamoImageEditor;
+  g.MyImageEditor = TiamoImageEditor; // 向后兼容旧命名引用
+
+  // 确保不管在任何时机，window.TiamoImageEditor.edit 都可以直接调用
+  Object.assign(TiamoImageEditor, {
+    edit: TiamoImageEditor.edit,
+    modal: TiamoImageEditor.modal,
+    toolbar: TiamoImageEditor.toolbar,
+    distributed: TiamoImageEditor.distributed,
     version: SDK_VERSION,
     buildTime: SDK_BUILD_TIME,
   });
+  g.TiamoImageEditor.version = SDK_VERSION;
+  g.TiamoImageEditor.buildTime = SDK_BUILD_TIME;
   g.MyImageEditor.version = SDK_VERSION;
   g.MyImageEditor.buildTime = SDK_BUILD_TIME;
 }
 
-export default MyImageEditor;
+export const MyImageEditor = TiamoImageEditor;
+export default TiamoImageEditor;

@@ -31,7 +31,7 @@ export const DistributedEditor: React.FC<DistributedEditorProps> = (props) => {
   }, [canvasContainer]);
 
   if (!resolvedToolbarNode || !resolvedCanvasNode) {
-    console.error('[MyImageEditor Distributed] 找不到指定的 toolbarContainer 或 canvasContainer 容器节点', {
+    console.error('[TiamoImageEditor Distributed] 找不到指定的 toolbarContainer 或 canvasContainer 容器节点', {
       toolbarContainer,
       canvasContainer,
       resolvedToolbarNode,

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MyImageEditor SDK - 本地体验与调试工作台</title>
+  <title>TiamoImageEditor SDK - 本地体验与调试工作台</title>
   
   <!-- 彻底杜绝浏览器缓存 -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -440,7 +440,7 @@
       <div class="brand-icon">✦</div>
       <div>
         <div class="brand-title">
-          MyImageEditor SDK
+          TiamoImageEditor SDK
           <span class="tag">本地体验与调试工作台</span>
         </div>
       </div>
@@ -590,7 +590,7 @@
         <div class="log-item">
           <span class="log-time">[00:00:00]</span>
           <span class="log-tag">[系统就绪]</span>
-          <span class="log-msg">MyImageEditor 本地体验环境准备完毕。请点击上方任意模式入口开始调试体验。</span>
+          <span class="log-msg">TiamoImageEditor 本地体验环境准备完毕。请点击上方任意模式入口开始调试体验。</span>
         </div>
       </div>
     </div>
@@ -617,11 +617,12 @@
       addLog('[控制台]', '日志已清空');
     });
 
-    // 智能解析并获取全局 SDK 实例（兼容 UMD 命名空间与直接函数调用）
+    // 智能解析并获取全局 SDK 实例（优先获取 TiamoImageEditor，兼容旧命名空间与函数）
     function getEditor() {
-      const w = window.MyImageEditor;
+      const w = window.TiamoImageEditor || window.MyImageEditor;
       if (!w) return null;
       if (typeof w.edit === 'function') return w;
+      if (w.TiamoImageEditor && typeof w.TiamoImageEditor.edit === 'function') return w.TiamoImageEditor;
       if (w.MyImageEditor && typeof w.MyImageEditor.edit === 'function') return w.MyImageEditor;
       if (w.default && typeof w.default.edit === 'function') return w.default;
       return w;
@@ -634,8 +635,8 @@
       const statusText = document.getElementById('sdk-status-text');
       const versionBadge = document.getElementById('sdk-version-badge');
       if (editor && typeof editor.edit === 'function') {
-        const ver = editor.version || (window.MyImageEditor && window.MyImageEditor.version) || '未知版本';
-        const built = editor.buildTime || (window.MyImageEditor && window.MyImageEditor.buildTime) || '?';
+        const ver = editor.version || (window.TiamoImageEditor && window.TiamoImageEditor.version) || (window.MyImageEditor && window.MyImageEditor.version) || '未知版本';
+        const built = editor.buildTime || (window.TiamoImageEditor && window.TiamoImageEditor.buildTime) || (window.MyImageEditor && window.MyImageEditor.buildTime) || '?';
         const src = window.__SDK_LOADED_FROM_SOURCE__ ? '源码' : '打包dist';
         if (versionBadge) {
           versionBadge.textContent = `版本: ${ver} · ${src} · ${built}`;
@@ -688,7 +689,7 @@
     document.getElementById('btn-modal-with-image').addEventListener('click', async () => {
       const editor = getEditor();
       if (!editor || typeof editor.edit !== 'function') {
-        addLog('[模式一: 错误]', '未能获取到 MyImageEditor.edit 方法，请刷新重试', false, true);
+        addLog('[模式一: 错误]', '未能获取到 TiamoImageEditor.edit 方法，请刷新重试', false, true);
         return;
       }
 
@@ -717,7 +718,7 @@
     document.getElementById('btn-modal-empty').addEventListener('click', async () => {
       const editor = getEditor();
       if (!editor || typeof editor.edit !== 'function') {
-        addLog('[模式一: 错误]', '未能获取到 MyImageEditor.edit 方法，请刷新重试', false, true);
+        addLog('[模式一: 错误]', '未能获取到 TiamoImageEditor.edit 方法，请刷新重试', false, true);
         return;
       }
 
@@ -749,7 +750,7 @@
     document.getElementById('btn-inplace-edit').addEventListener('click', async () => {
       const editor = getEditor();
       if (!editor || typeof editor.edit !== 'function') {
-        addLog('[模式二: 错误]', '未能获取到 MyImageEditor.edit 方法，请刷新重试', false, true);
+        addLog('[模式二: 错误]', '未能获取到 TiamoImageEditor.edit 方法，请刷新重试', false, true);
         return;
       }
 
@@ -783,7 +784,7 @@
     document.getElementById('btn-dist-mount').addEventListener('click', async () => {
       const editor = getEditor();
       if (!editor || typeof editor.edit !== 'function') {
-        addLog('[模式三: 错误]', '未能获取到 MyImageEditor.edit 方法，请刷新重试', false, true);
+        addLog('[模式三: 错误]', '未能获取到 TiamoImageEditor.edit 方法，请刷新重试', false, true);
         return;
       }
 
