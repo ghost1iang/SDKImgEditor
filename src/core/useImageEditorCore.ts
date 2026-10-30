@@ -6,6 +6,8 @@ export interface HistoryRecord {
   url: string;
   prompt: string;
   timestamp: string;
+  width?: number;
+  height?: number;
 }
 
 export interface Point {
@@ -16,6 +18,11 @@ export interface Point {
 export interface SelectionRegion {
   type: 'rect' | 'path';
   data: any;
+}
+
+export interface RectDragPoints {
+  current: Point;
+  opposite: Point;
 }
 
 export interface CoreOptions {
@@ -48,6 +55,7 @@ export function useImageEditorCore(options: CoreOptions = {}) {
   const [activeTool, setActiveTool] = useState<string | null>(null); // 'wand' | 'rect' | 'lasso' | 'pipette' | 'quad' | 'rotate'
   const [selectionMode, setSelectionMode] = useState<'global' | 'connected'>('global'); 
   const [selectionRegion, setSelectionRegion] = useState<SelectionRegion | null>(null); 
+  const [rectDragPoints, setRectDragPoints] = useState<RectDragPoints | null>(null); 
   const [isRegionInverted, setIsRegionInverted] = useState<boolean>(false); 
   const [drawingPath, setDrawingPath] = useState<Point[]>([]); 
   const [regionStart, setRegionStart] = useState<Point | null>(null); 
@@ -67,6 +75,7 @@ export function useImageEditorCore(options: CoreOptions = {}) {
   const [draggingPointIdx, setDraggingPointIdx] = useState<number>(-1); 
   const [rotationAngle, setRotationAngle] = useState<number>(0); // 预览角度
   const dragStartData = useRef<any>(null); 
+  const mouseDownOutsideRef = useRef<{ x: number; y: number } | null>(null);
   
   const imageRef = useRef<HTMLImageElement | null>(null);
   const displayMaskRef = useRef<HTMLCanvasElement | null>(null);
@@ -113,6 +122,7 @@ export function useImageEditorCore(options: CoreOptions = {}) {
 
   const clearSelection = () => {
     setSelectionRegion(null);
+    setRectDragPoints(null);
     setIsRegionInverted(false);
     setMaskCanvas(null);
     setQuadPoints(null);
@@ -377,25 +387,34 @@ export function useImageEditorCore(options: CoreOptions = {}) {
     if (!rect) return;
     const isAdding = e.metaKey || e.ctrlKey;
 
+    const nw = imageRef.current!.naturalWidth, nh = imageRef.current!.naturalHeight;
+    const rawX = Math.floor(((e.clientX - rect.left) / rect.width) * nw);
+    const rawY = Math.floor(((e.clientY - rect.top) / rect.height) * nh);
+    const imgX = Math.max(0, Math.min(nw, rawX));
+    const imgY = Math.max(0, Math.min(nh, rawY));
+
     const isOutsideImage = e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom;
-    if (isOutsideImage) {
-      if (hasSelection) {
-        clearSelection();
-      }
-      if (e.button === 0) {
-        setIsPanning(true);
-        lastMousePos.current = { x: e.clientX, y: e.clientY };
+
+    // 快捷键空格、非鼠标主键或未选择任何绘制工具时，进入画布平移拖拽模式
+    if (e.button !== 0 || spacePressed || !activeTool) {
+      e.preventDefault();
+      setIsPanning(true);
+      lastMousePos.current = { x: e.clientX, y: e.clientY };
+      if (isOutsideImage) {
+        mouseDownOutsideRef.current = { x: e.clientX, y: e.clientY };
       }
       return;
     }
 
-    if (e.button !== 0 || spacePressed || !activeTool) {
-      e.preventDefault(); setIsPanning(true); lastMousePos.current = { x: e.clientX, y: e.clientY }; return;
+    // 非框选/套索类工具（如魔棒、吸管、多边形打点），在画布外点击时作为画布平移处理
+    if (isOutsideImage && activeTool !== 'rect' && activeTool !== 'lasso') {
+      if (e.button === 0) {
+        setIsPanning(true);
+        lastMousePos.current = { x: e.clientX, y: e.clientY };
+        mouseDownOutsideRef.current = { x: e.clientX, y: e.clientY };
+      }
+      return;
     }
-
-    const nw = imageRef.current!.naturalWidth, nh = imageRef.current!.naturalHeight;
-    const imgX = Math.max(0, Math.min(nw, Math.floor(((e.clientX - rect.left) / rect.width) * nw)));
-    const imgY = Math.max(0, Math.min(nh, Math.floor(((e.clientY - rect.top) / rect.height) * nh)));
 
     if (activeTool === 'quad') {
       if (isPolyClosed && quadPoints) {
@@ -429,7 +448,20 @@ export function useImageEditorCore(options: CoreOptions = {}) {
       else if (Math.abs(r.x + r.w - imgX) < thr && Math.abs(r.y - imgY) < thr) hitIdx = 1;
       else if (Math.abs(r.x + r.w - imgX) < thr && Math.abs(r.y + r.h - imgY) < thr) hitIdx = 2;
       else if (Math.abs(r.x - imgX) < thr && Math.abs(r.y + r.h - imgY) < thr) hitIdx = 3;
-      if (hitIdx !== -1) { setDraggingPointIdx(hitIdx); dragStartData.current = { ...r }; return; }
+      if (hitIdx !== -1) { 
+        setDraggingPointIdx(hitIdx); 
+        dragStartData.current = { ...r }; 
+        const curPt = hitIdx === 0 ? { x: r.x, y: r.y } :
+                      hitIdx === 1 ? { x: r.x + r.w, y: r.y } :
+                      hitIdx === 2 ? { x: r.x + r.w, y: r.y + r.h } :
+                      { x: r.x, y: r.y + r.h };
+        const oppPt = hitIdx === 0 ? { x: r.x + r.w, y: r.y + r.h } :
+                      hitIdx === 1 ? { x: r.x, y: r.y + r.h } :
+                      hitIdx === 2 ? { x: r.x, y: r.y } :
+                      { x: r.x + r.w, y: r.y };
+        setRectDragPoints({ current: curPt, opposite: oppPt });
+        return; 
+      }
     }
     if (activeTool === 'pipette') {
       const canvas = document.createElement('canvas'); canvas.width = nw; canvas.height = nh;
@@ -442,8 +474,10 @@ export function useImageEditorCore(options: CoreOptions = {}) {
       setActiveTool(null); return;
     }
     if (activeTool === 'rect') {
+      // 支持画布外负数/超界坐标拖动：自动将起点智能吸附至画布边缘 (0~nw, 0~nh)
       setRegionStart({ x: imgX, y: imgY });
       setSelectionRegion({ type: 'rect', data: { x: imgX, y: imgY, w: 0, h: 0 } });
+      setRectDragPoints({ current: { x: imgX, y: imgY }, opposite: { x: imgX, y: imgY } });
     } else if (activeTool === 'lasso') {
       setDrawingPath([{ x: imgX, y: imgY }]);
     } else if (activeTool === 'wand') {
@@ -470,8 +504,10 @@ export function useImageEditorCore(options: CoreOptions = {}) {
     if (!imageRef.current) return;
     const rect = imageRef.current.getBoundingClientRect();
     const nw = imageRef.current.naturalWidth, nh = imageRef.current.naturalHeight;
-    const imgX = Math.max(0, Math.min(nw, Math.floor(((e.clientX - rect.left) / rect.width) * nw)));
-    const imgY = Math.max(0, Math.min(nh, Math.floor(((e.clientY - rect.top) / rect.height) * nh)));
+    const rawX = Math.floor(((e.clientX - rect.left) / rect.width) * nw);
+    const rawY = Math.floor(((e.clientY - rect.top) / rect.height) * nh);
+    const imgX = Math.max(0, Math.min(nw, rawX));
+    const imgY = Math.max(0, Math.min(nh, rawY));
 
     if (activeTool === 'quad') {
       if (isPolyClosed && draggingPointIdx !== -1 && quadPoints) {
@@ -505,27 +541,93 @@ export function useImageEditorCore(options: CoreOptions = {}) {
       else if (draggingPointIdx === 1) { r.w = fx - r.x; r.h += r.y - fy; r.y = fy; }
       else if (draggingPointIdx === 2) { r.w = fx - r.x; r.h = fy - r.y; }
       else if (draggingPointIdx === 3) { r.w += r.x - fx; r.x = fx; r.h = fy - r.y; }
-      setSelectionRegion({ type: 'rect', data: r }); return;
+      setSelectionRegion({ type: 'rect', data: r });
+      
+      const curPt = draggingPointIdx === 0 ? { x: r.x, y: r.y } :
+                    draggingPointIdx === 1 ? { x: r.x + r.w, y: r.y } :
+                    draggingPointIdx === 2 ? { x: r.x + r.w, y: r.y + r.h } :
+                    { x: r.x, y: r.y + r.h };
+      const oppPt = draggingPointIdx === 0 ? { x: r.x + r.w, y: r.y + r.h } :
+                    draggingPointIdx === 1 ? { x: r.x, y: r.y + r.h } :
+                    draggingPointIdx === 2 ? { x: r.x, y: r.y } :
+                    { x: r.x + r.w, y: r.y };
+      setRectDragPoints({ current: curPt, opposite: oppPt });
+      return;
     }
     if (!regionStart && drawingPath.length === 0) return;
     if (activeTool === 'rect' && regionStart) {
       const x = Math.min(regionStart.x, imgX), y = Math.min(regionStart.y, imgY);
       const w = Math.abs(regionStart.x - imgX), h = Math.abs(regionStart.y - imgY);
       setSelectionRegion({ type: 'rect', data: { x, y, w, h } });
+      setRectDragPoints({
+        current: { x: imgX, y: imgY },
+        opposite: { x: regionStart.x, y: regionStart.y },
+      });
     } else if (activeTool === 'lasso' && drawingPath.length > 0) {
       setDrawingPath(prev => [...prev, { x: imgX, y: imgY }]);
     }
   };
 
-  const handleMouseUp = () => {
-    setIsPanning(false); setDraggingPointIdx(-1); dragStartData.current = null;
+  const handleMouseUp = (e?: React.MouseEvent) => {
+    setIsPanning(false); 
+    setDraggingPointIdx(-1); 
+    dragStartData.current = null;
+    setRectDragPoints(null);
+
+    // 若在画布外部点击且没有实质移动（纯点击取消），统一在 mouse up 释放时清除选区
+    if (mouseDownOutsideRef.current) {
+      const startPos = mouseDownOutsideRef.current;
+      mouseDownOutsideRef.current = null;
+      const clientX = e ? e.clientX : startPos.x;
+      const clientY = e ? e.clientY : startPos.y;
+      const dist = Math.hypot(clientX - startPos.x, clientY - startPos.y);
+      if (dist < 5 && hasSelection) {
+        clearSelection();
+      }
+    }
+
     if (activeTool === 'rect' && regionStart) {
-      setRegionStart(null); if (selectionRegion && (selectionRegion.data.w < 2 || selectionRegion.data.h < 2)) { setSelectionRegion(null); setActiveTool(null); }
+      setRegionStart(null); 
+      // 拖拽宽度或高度过小（单次点击或原地微移），判定为取消/退出框选状态
+      if (selectionRegion && (selectionRegion.data.w < 2 || selectionRegion.data.h < 2)) { 
+        clearSelection();
+      }
     } else if (activeTool === 'lasso' && drawingPath.length > 0) {
-      if (drawingPath.length > 3) setSelectionRegion({ type: 'path', data: drawingPath }); else setSelectionRegion(null);
-      setDrawingPath([]); setActiveTool(null);
+      if (drawingPath.length > 3) setSelectionRegion({ type: 'path', data: drawingPath }); 
+      else setSelectionRegion(null);
+      setDrawingPath([]); 
+      setActiveTool(null);
     }
   };
+
+  // 保持事件引用最新，便于 window 全局监听调用
+  const handleMouseMoveRef = useRef(handleMouseMove);
+  handleMouseMoveRef.current = handleMouseMove;
+  const handleMouseUpRef = useRef(handleMouseUp);
+  handleMouseUpRef.current = handleMouseUp;
+
+  const isDraggingAny = !!(regionStart || isPanning || draggingPointIdx !== -1 || drawingPath.length > 0 || rectDragPoints);
+
+  // 处于拖拽框选、视口平移或定点拉伸状态时，全局接管 mousemove 和 mouseup，彻底杜绝鼠标移出工作区或经过外部 UI 时发生卡顿或丢失拖拽
+  useEffect(() => {
+    if (!isDraggingAny) return;
+
+    const onGlobalMouseMove = (e: MouseEvent) => {
+      handleMouseMoveRef.current(e as any);
+    };
+
+    const onGlobalMouseUp = (e: MouseEvent) => {
+      handleMouseUpRef.current(e as any);
+    };
+
+    window.addEventListener('mousemove', onGlobalMouseMove);
+    window.addEventListener('mouseup', onGlobalMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', onGlobalMouseMove);
+      window.removeEventListener('mouseup', onGlobalMouseUp);
+    };
+  }, [isDraggingAny]);
 
   // 旋转应用逻辑
   const handleApplyRotation = () => {
@@ -1135,6 +1237,8 @@ export function useImageEditorCore(options: CoreOptions = {}) {
     polyHoverClose,
     polyMousePos,
     draggingPointIdx,
+    regionStart,
+    rectDragPoints,
     rotationAngle,
     setRotationAngle,
     imageRef,

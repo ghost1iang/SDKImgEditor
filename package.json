@@ -1,6 +1,6 @@
 {
   "name": "my-image-editor-sdk",
-  "version": "1.5.0",
+  "version": "1.5.3",
   "description": "Zero-dependency Image Editor SDK with modal, in-place toolbar, and distributed modes",
   "main": "dist/my-image-editor.umd.js",
   "module": "dist/my-image-editor.es.js",

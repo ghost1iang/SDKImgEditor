@@ -69,6 +69,7 @@ export const ToolbarPopoverEditor: React.FC<ToolbarPopoverEditorProps> = (props)
     polyHoverClose,
     polyMousePos,
     draggingPointIdx,
+    rectDragPoints,
   } = core;
 
   // 计算浮动工具栏坐标
@@ -99,11 +100,11 @@ export const ToolbarPopoverEditor: React.FC<ToolbarPopoverEditorProps> = (props)
         />
       </div>
 
-      {/* 如果有选区，点击图片外部区域取消选区 */}
-      {core.hasSelection && (
+      {/* 如果有选区且无进行中的工具，点击图片外部区域取消选区 */}
+      {core.hasSelection && !core.activeTool && (
         <div 
           className="fixed inset-0 z-[999980] pointer-events-auto cursor-default"
-          onMouseDown={() => core.clearSelection()}
+          onClick={() => core.clearSelection()}
         />
       )}
 
@@ -241,6 +242,108 @@ export const ToolbarPopoverEditor: React.FC<ToolbarPopoverEditorProps> = (props)
           </div>
         </div>
       )}
+
+      {/* 坐标浮动层：固定显示选框左上和右下两个点的物理坐标，只要选框存在即保持显示，并智能规避视口遮挡 */}
+      {selectionRegion && selectionRegion.type === 'rect' && imageRef.current && (() => {
+        const r = selectionRegion.data;
+        if (!r) return null;
+        const minX = Math.min(r.x, r.x + r.w);
+        const maxX = Math.max(r.x, r.x + r.w);
+        const minY = Math.min(r.y, r.y + r.h);
+        const maxY = Math.max(r.y, r.y + r.h);
+        if (maxX - minX <= 0 || maxY - minY <= 0) return null;
+
+        const imgRect = imageRef.current.getBoundingClientRect();
+        const nw = imageRef.current.naturalWidth;
+        const nh = imageRef.current.naturalHeight;
+        const viewportW = window.innerWidth;
+        const viewportH = window.innerHeight;
+        if (!nw || !nh || !viewportW || !viewportH) return null;
+
+        const tlScreenX = imgRect.left + (minX / nw) * imgRect.width;
+        const tlScreenY = imgRect.top + (minY / nh) * imgRect.height;
+
+        const brScreenX = imgRect.left + (maxX / nw) * imgRect.width;
+        const brScreenY = imgRect.top + (maxY / nh) * imgRect.height;
+
+        const badgeW = 92;
+        const badgeH = 26;
+        const offset = 8;
+
+        let tlTargetX = tlScreenX - badgeW - offset;
+        let tlTargetY = tlScreenY - badgeH - offset;
+        if (tlTargetX < 8) tlTargetX = tlScreenX + offset;
+        if (tlTargetY < 8) tlTargetY = tlScreenY + offset;
+
+        let brTargetX = brScreenX + offset;
+        let brTargetY = brScreenY + offset;
+        if (brTargetX + badgeW > viewportW - 8) brTargetX = brScreenX - badgeW - offset;
+        if (brTargetY + badgeH > viewportH - 8) brTargetY = brScreenY - badgeH - offset;
+
+        // 视口边界碰撞钳制：
+        // 1. 如果拖拽鼠标 x + 坐标w 大于 视口w，则显示位置为 x = 视口w - 坐标w
+        // 2. 如果拖拽鼠标 y + 坐标h 大于 视口h，则显示位置为 y = 视口h - 坐标h
+        const clampToViewport = (x: number, y: number) => {
+          let resX = x;
+          let resY = y;
+          const padding = 8;
+
+          if (resX + badgeW > viewportW - padding) {
+            resX = viewportW - badgeW - padding;
+          }
+          if (resX < padding) {
+            resX = padding;
+          }
+
+          if (resY + badgeH > viewportH - padding) {
+            resY = viewportH - badgeH - padding;
+          }
+          if (resY < padding) {
+            resY = padding;
+          }
+
+          return { x: resX, y: resY };
+        };
+
+        const tlPos = clampToViewport(tlTargetX, tlTargetY);
+        let brPos = clampToViewport(brTargetX, brTargetY);
+
+        if (Math.abs(tlPos.x - brPos.x) < badgeW && Math.abs(tlPos.y - brPos.y) < badgeH) {
+          if (tlPos.y - badgeH - 6 >= 8) {
+            tlPos.y = brPos.y - badgeH - 6;
+          } else {
+            brPos.y = tlPos.y + badgeH + 6;
+          }
+        }
+
+        return (
+          <div className="fixed inset-0 pointer-events-none overflow-hidden z-[999995]">
+            {/* 左上角物理坐标 */}
+            <div 
+              className="absolute pointer-events-none whitespace-nowrap bg-slate-950/95 text-white font-mono text-[11px] font-bold px-2 py-0.5 rounded-md shadow-2xl border border-blue-400 backdrop-blur-md flex items-center gap-1.5 select-none"
+              style={{
+                left: `${tlPos.x}px`,
+                top: `${tlPos.y}px`,
+              }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
+              <span>({Math.round(minX)}, {Math.round(minY)})</span>
+            </div>
+
+            {/* 右下角物理坐标 */}
+            <div 
+              className="absolute pointer-events-none whitespace-nowrap bg-slate-900/95 text-slate-200 font-mono text-[11px] font-bold px-2 py-0.5 rounded-md shadow-2xl border border-indigo-400/80 backdrop-blur-md flex items-center gap-1.5 select-none"
+              style={{
+                left: `${brPos.x}px`,
+                top: `${brPos.y}px`,
+              }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+              <span>({Math.round(maxX)}, {Math.round(maxY)})</span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 确认弹窗 */}
       <ConfirmModal core={core} />

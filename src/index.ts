@@ -9,7 +9,7 @@ export const toolbar = TiamoImageEditor.toolbar.bind(TiamoImageEditor);
 export const distributed = TiamoImageEditor.distributed.bind(TiamoImageEditor);
 
 export { useImageEditorCore } from './core/useImageEditorCore';
-export type { ImageEditorCore, HistoryRecord, Point, SelectionRegion } from './core/useImageEditorCore';
+export type { ImageEditorCore, HistoryRecord, Point, SelectionRegion, RectDragPoints } from './core/useImageEditorCore';
 
 export { Toolbar } from './components/Toolbar';
 export { ToolbarSettingsPopover } from './components/ToolbarSettingsPopover';
