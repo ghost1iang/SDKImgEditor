@@ -1,5 +1,5 @@
-import { TiamoImageEditor, MyImageEditor } from './sdk';
-export { TiamoImageEditor, MyImageEditor } from './sdk';
+import { TiamoImageEditor } from './sdk';
+export { TiamoImageEditor } from './sdk';
 export type { EditOptions, EditResult, EditorMode, OutputType } from './sdk';
 
 // 导出顶层方法，确保在 UMD 模式下 window.TiamoImageEditor.edit 即可直接调用
@@ -39,7 +39,6 @@ if (typeof window !== 'undefined') {
   if (sourceAlreadyMounted) {
     if (globalObj.__TIAMO_IMAGE_EDITOR_SOURCE__) {
       globalObj.TiamoImageEditor = globalObj.__TIAMO_IMAGE_EDITOR_SOURCE__;
-      globalObj.MyImageEditor = globalObj.__TIAMO_IMAGE_EDITOR_SOURCE__;
     }
     console.warn(`[TiamoImageEditor SDK] 检测到源码内核已挂载，忽略打包产物 ${SDK_VERSION} (${SDK_BUILD_TIME}) 的全局覆盖`);
   } else {
@@ -51,9 +50,6 @@ if (typeof window !== 'undefined') {
     globalObj.TiamoImageEditor.distributed = distributed;
     globalObj.TiamoImageEditor.version = SDK_VERSION;
     globalObj.TiamoImageEditor.buildTime = SDK_BUILD_TIME;
-
-    // 同时向后兼容 MyImageEditor 引用
-    globalObj.MyImageEditor = globalObj.TiamoImageEditor;
 
     if (isSourceBuild) {
       globalObj.__SDK_LOADED_FROM_SOURCE__ = true;

@@ -230,7 +230,6 @@ export class TiamoImageEditor {
 if (typeof window !== 'undefined') {
   const g = window as any;
   g.TiamoImageEditor = TiamoImageEditor;
-  g.MyImageEditor = TiamoImageEditor; // 向后兼容旧命名引用
 
   // 确保不管在任何时机，window.TiamoImageEditor.edit 都可以直接调用
   Object.assign(TiamoImageEditor, {
@@ -243,9 +242,6 @@ if (typeof window !== 'undefined') {
   });
   g.TiamoImageEditor.version = SDK_VERSION;
   g.TiamoImageEditor.buildTime = SDK_BUILD_TIME;
-  g.MyImageEditor.version = SDK_VERSION;
-  g.MyImageEditor.buildTime = SDK_BUILD_TIME;
 }
 
-export const MyImageEditor = TiamoImageEditor;
 export default TiamoImageEditor;

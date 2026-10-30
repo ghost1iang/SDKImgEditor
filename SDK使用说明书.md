@@ -23,7 +23,7 @@
 TiamoImageEditor SDK 旨在将复杂的图像编辑组件转变为一个**零依赖、低耦合、即插即用**的现代 JavaScript 库。
 
 ### 1.1 零框架依赖独立单文件打包
-- **内置完整运行时**：打包配置使用 Vite 与 Rollup，将 React 18 运行时、ReactDOM、Lucide 图标组件库以及编译后的 Tailwind CSS 样式全部静态打包进单文件（`dist/my-image-editor.umd.js` 与 `dist/my-image-editor.es.js`）。
+- **内置完整运行时**：打包配置使用 Vite 与 Rollup，将 React 18 运行时、ReactDOM、Lucide 图标组件库以及编译后的 Tailwind CSS 样式全部静态打包进单文件（`dist/tiamo-image-editor.umd.js` 与 `dist/tiamo-image-editor.es.js`）。
 - **外部零安装**：无论是无框架的原生 HTML 页面，还是使用 Vue 2/3、Angular、Svelte、React 的项目，均**无需在 package.json 中安装任何额外依赖**，直接引入即可调用。
 
 ### 1.2 样式隔离 (Shadow DOM 沙箱)
@@ -74,7 +74,7 @@ SDK 拥有全套专业图像处理与 AI 能力：
 ### 3.1 入参 `targetOrSource`
 | 参数类型 | 示例 | 说明 |
 | :--- | :--- | :--- |
-| `HTMLImageElement` | `document.getElementById('my-img')` | 目标图片节点（原地模式必传，完成后可自动更新该节点） |
+| `HTMLImageElement` | `document.getElementById('tiamo-img')` | 目标图片节点（原地模式必传，完成后可自动更新该节点） |
 | `HTMLCanvasElement` | `canvasNode` | 目标 Canvas 画布 |
 | `string` | `'https://example.com/a.png'` 或 `data:image/png;base64,...` | 图片 URL 或 Base64 编码字符串 |
 | `Blob` / `File` | `fileInput.files[0]` | 本地文件对象 |
@@ -133,14 +133,14 @@ SDK 支持对工具栏的 **22 个功能按钮** 进行细粒度配置与按需�
 
 ```html
 <button id="btn-modal">弹窗编辑图片</button>
-<img id="my-pic" src="avatar.png" width="200" />
+<img id="tiamo-pic" src="avatar.png" width="200" />
 
-<script src="./dist/my-image-editor.umd.js"></script>
+<script src="./dist/tiamo-image-editor.umd.js"></script>
 <script>
   document.getElementById('btn-modal').addEventListener('click', async () => {
     try {
       // 唤起全屏弹窗编辑：
-      const newBlob = await window.TiamoImageEditor.edit(document.getElementById('my-pic'), {
+      const newBlob = await window.TiamoImageEditor.edit(document.getElementById('tiamo-pic'), {
         mode: 'modal',
         outputType: 'blob',
         apiKey: 'YOUR_GEMINI_API_KEY', // 可选
@@ -164,7 +164,7 @@ SDK 支持对工具栏的 **22 个功能按钮** 进行细粒度配置与按需�
   <button id="btn-inplace" style="margin-top: 10px;">吸附工具栏原地编辑</button>
 </div>
 
-<script src="./dist/my-image-editor.umd.js"></script>
+<script src="./dist/tiamo-image-editor.umd.js"></script>
 <script>
   document.getElementById('btn-inplace').addEventListener('click', async () => {
     const imgEl = document.getElementById('target-photo');
@@ -200,7 +200,7 @@ SDK 支持对工具栏的 **22 个功能按钮** 进行细粒度配置与按需�
 
 <button id="btn-mount-dist">将编辑器挂载到预设布局</button>
 
-<script src="./dist/my-image-editor.umd.js"></script>
+<script src="./dist/tiamo-image-editor.umd.js"></script>
 <script>
   document.getElementById('btn-mount-dist').addEventListener('click', async () => {
     const result = await window.TiamoImageEditor.edit('https://example.com/banner.png', {
@@ -233,7 +233,7 @@ SDK 支持对工具栏的 **22 个功能按钮** 进行细粒度配置与按需�
 
 <script setup>
 import { ref } from 'vue';
-import { TiamoImageEditor } from 'my-image-editor-sdk'; // 或从本地 dist 引入
+import { TiamoImageEditor } from 'tiamo-image-editor-sdk'; // 或从本地 dist 引入
 
 const avatarUrl = ref('/images/default-avatar.png');
 const avatarRef = ref(null);
@@ -265,7 +265,7 @@ const editInPlace = async () => {
 ### 5.2 React 接入示例
 ```tsx
 import React, { useRef, useState } from 'react';
-import { TiamoImageEditor } from 'my-image-editor-sdk';
+import { TiamoImageEditor } from 'tiamo-image-editor-sdk';
 
 export function ImageUploader() {
   const imgRef = useRef<HTMLImageElement>(null);
@@ -322,7 +322,7 @@ TiamoImageEditor.distributed(toolbarSlotNode, canvasSlotNode, imageSource, optio
   - **参数化显隐配置 (接入前控制)**：SDK 新增 `visibleTools`（白名单）、`hiddenTools`（黑名单）和 `tools`（对象字典或数组）参数，方便宿主工程在唤起前定制裁剪特定按钮；
   - **本地体验与测试工作台**：在 `index.html` 增加专用的“工具栏按钮显示配置测试”卡片，包含快捷预设方案与 22 个工具的复选框，让开发者在接入 SDK 前即可直接测试不同配置组合的效果。
 - **🏷️ 全局品牌命名统一为 TiamoImageEditor**：
-  - 全局命名空间、类名、导出名及文档全量迁移为 `TiamoImageEditor`，同时内置 `window.MyImageEditor` 向后兼容别名。
+  - 全局命名空间、类名、导出名及文档全量规范统一为 `TiamoImageEditor` 与 `tiamo-image-editor`。
 
 ### v1.4.2
 - **🚀 旋转浮窗架构彻底重构 (Rotation Popover)**：

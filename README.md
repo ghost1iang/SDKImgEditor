@@ -32,8 +32,8 @@
 ## 📦 打包产物
 
 执行构建后在 `dist/` 目录下生成：
-- `dist/my-image-editor.umd.js`：适合 `<script src="...">` 直接在浏览器中引入（挂载全局对象 `window.TiamoImageEditor`，同时兼容 `window.MyImageEditor`）。
-- `dist/my-image-editor.es.js`：适合现代前端工程 `import { TiamoImageEditor } from '...'`。
+- `dist/tiamo-image-editor.umd.js`：适合 `<script src="...">` 直接在浏览器中引入（挂载全局对象 `window.TiamoImageEditor`）。
+- `dist/tiamo-image-editor.es.js`：适合现代前端工程 `import { TiamoImageEditor } from '...'`。
 - `dist/types/`：TypeScript 完整类型声明定义。
 
 ---
@@ -44,14 +44,14 @@
 
 ```html
 <!-- 引入 SDK -->
-<script src="./dist/my-image-editor.umd.js"></script>
+<script src="./dist/tiamo-image-editor.umd.js"></script>
 
-<img id="my-avatar" src="avatar.png" />
+<img id="tiamo-avatar" src="avatar.png" />
 <button id="edit-btn">编辑图片</button>
 
 <script>
   document.getElementById('edit-btn').addEventListener('click', async () => {
-    const imgEl = document.getElementById('my-avatar');
+    const imgEl = document.getElementById('tiamo-avatar');
 
     // 一行代码唤起原地编辑（或弹窗编辑）：
     const newBlob = await window.TiamoImageEditor.edit(imgEl, {
@@ -67,7 +67,7 @@
 ### 2. Vue / React 工程中使用
 
 ```javascript
-import { TiamoImageEditor } from './dist/my-image-editor.es.js';
+import { TiamoImageEditor } from './dist/tiamo-image-editor.es.js';
 
 // 在任何点击事件中调用：
 const newImageBlob = await TiamoImageEditor.edit(targetImageElement, {
@@ -97,9 +97,9 @@ const resultBlob = await TiamoImageEditor.edit(sourceImage, {
 
 ### 模式二：原地编辑（Toolbar Popover）
 ```javascript
-const resultBlob = await TiamoImageEditor.edit(document.getElementById('my-image'), {
+const resultBlob = await TiamoImageEditor.edit(document.getElementById('tiamo-image'), {
   mode: 'toolbar',
-  autoUpdateTarget: true // 完成后原地自动将新图片赋值给 my-image.src
+  autoUpdateTarget: true // 完成后原地自动将新图片赋值给 tiamo-image.src
 });
 ```
 - 工具栏以浮动卡片（Popover Toolbar）形式吸附在目标图片上方。
@@ -110,8 +110,8 @@ const resultBlob = await TiamoImageEditor.edit(document.getElementById('my-image
 ```javascript
 const resultBlob = await TiamoImageEditor.edit(sourceImage, {
   mode: 'distributed',
-  toolbarContainer: '#my-toolbar-slot', // 宿主界面中工具栏挂载节点或选择器
-  canvasContainer: '#my-canvas-slot',   // 宿主界面中画布挂载节点或选择器
+  toolbarContainer: '#tiamo-toolbar-slot', // 宿主界面中工具栏挂载节点或选择器
+  canvasContainer: '#tiamo-canvas-slot',   // 宿主界面中画布挂载节点或选择器
 });
 ```
 - SDK 将工具栏渲染到 `toolbarContainer`，画布渲染到 `canvasContainer`。

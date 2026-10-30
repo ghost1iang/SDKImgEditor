@@ -35,7 +35,7 @@
   <!-- 离线兼容：本地直接双击打开 (file://) 时，同步注入独立单文件 UMD SDK -->
   <script>
     if (!window.location.protocol.startsWith('http')) {
-      document.write('<script src="./dist/my-image-editor.umd.js?v=1.4.2&t=' + Date.now() + '"><\/script>');
+      document.write('<script src="./dist/tiamo-image-editor.umd.js"><\/script>');
     }
   </script>
 
@@ -572,6 +572,10 @@
     }
     .log-success { color: #34d399; }
     .log-warn { color: #fbbf24; }
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
   </style>
 </head>
 <body>
@@ -594,6 +598,9 @@
       </div>
       <button id="btn-force-refresh" style="display:inline-flex;align-items:center;gap:4px;padding:0.35rem 0.75rem;background:#ffffff;border:1px solid #cbd5e1;border-radius:6px;font-size:0.75rem;font-weight:700;color:#0f172a;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,0.05);transition:all 0.15s;" title="强制清空本地所有缓存并带新时间戳刷新">
         <span style="color:#2563eb;">⚡</span> 强制刷新 (防缓存)
+      </button>
+      <button id="btn-publish-sdk" style="display:inline-flex;align-items:center;gap:5px;padding:0.35rem 0.85rem;background:linear-gradient(135deg, #10b981 0%, #059669 100%);border:none;border-radius:6px;font-size:0.75rem;font-weight:800;color:#ffffff;cursor:pointer;box-shadow:0 2px 6px rgba(16,185,129,0.3);transition:all 0.15s;" title="打包生成 SDK 并拷贝至 ..\TiamoLogin\sdk\SDKImgEditor">
+        <span>🚀</span> 发布 SDK
       </button>
     </div>
   </header>
@@ -847,13 +854,12 @@
       addLog('[控制台]', '日志已清空');
     });
 
-    // 智能解析并获取全局 SDK 实例（优先获取 TiamoImageEditor，兼容旧命名空间与函数）
+    // 智能解析并获取全局 SDK 实例
     function getEditor() {
-      const w = window.TiamoImageEditor || window.MyImageEditor;
+      const w = window.TiamoImageEditor;
       if (!w) return null;
       if (typeof w.edit === 'function') return w;
       if (w.TiamoImageEditor && typeof w.TiamoImageEditor.edit === 'function') return w.TiamoImageEditor;
-      if (w.MyImageEditor && typeof w.MyImageEditor.edit === 'function') return w.MyImageEditor;
       if (w.default && typeof w.default.edit === 'function') return w.default;
       return w;
     }
@@ -865,8 +871,8 @@
       const statusText = document.getElementById('sdk-status-text');
       const versionBadge = document.getElementById('sdk-version-badge');
       if (editor && typeof editor.edit === 'function') {
-        const ver = editor.version || (window.TiamoImageEditor && window.TiamoImageEditor.version) || (window.MyImageEditor && window.MyImageEditor.version) || '未知版本';
-        const built = editor.buildTime || (window.TiamoImageEditor && window.TiamoImageEditor.buildTime) || (window.MyImageEditor && window.MyImageEditor.buildTime) || '?';
+        const ver = editor.version || (window.TiamoImageEditor && window.TiamoImageEditor.version) || '未知版本';
+        const built = editor.buildTime || (window.TiamoImageEditor && window.TiamoImageEditor.buildTime) || '?';
         const src = window.__SDK_LOADED_FROM_SOURCE__ ? '源码' : '打包dist';
         if (versionBadge) {
           versionBadge.textContent = `版本: ${ver} · ${src} · ${built}`;
@@ -1136,6 +1142,174 @@
       document.querySelectorAll('[data-sdk-image-editor-host]').forEach(el => el.remove());
       addLog('[模式三: 卸载]', '已清理分布式挂载插槽。');
     });
+
+    // ==========================================
+    // SDK 一键发布逻辑 (复制脚本到剪贴板并拉起终端)
+    // ==========================================
+    const btnPublish = document.getElementById('btn-publish-sdk');
+    const publishModal = document.getElementById('publish-modal');
+    const btnClosePublishModal = document.getElementById('btn-close-publish-modal');
+    const btnOkPublishModal = document.getElementById('btn-ok-publish-modal');
+    const btnCopyFullCmd = document.getElementById('btn-copy-full-cmd');
+    const btnCopyShortCmd = document.getElementById('btn-copy-short-cmd');
+    const modalScriptCode = document.getElementById('modal-script-code');
+    const modalFilenamePreview = document.getElementById('modal-filename-preview');
+
+    function getPublishInfo() {
+      const editor = getEditor();
+      let ver = (editor && editor.version) || (window.TiamoImageEditor && window.TiamoImageEditor.version) || '1.5.3';
+      ver = ver.replace(/^[vV]/, '');
+      const versionFolder = `v${ver}`;
+      const cwd = typeof __PROJECT_CWD__ !== 'undefined' ? __PROJECT_CWD__ : '/Users/leonhe/Documents/TiamoProject/SDKImgEditor';
+      const fullCmd = `cd "${cwd}" && npm run publish:sdk`;
+      const shortCmd = `npm run publish:sdk`;
+      return { ver, versionFolder, cwd, fullCmd, shortCmd };
+    }
+
+    async function copyToClipboard(text) {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+      } catch (e) {}
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (ok) return true;
+      } catch (e) {}
+      return false;
+    }
+
+    if (btnPublish) {
+      btnPublish.addEventListener('click', async () => {
+        const info = getPublishInfo();
+        const cmdToCopy = info.fullCmd;
+
+        // 1. 自动写入剪贴板
+        await copyToClipboard(cmdToCopy);
+
+        // 2. 更新弹窗展示
+        if (modalScriptCode) modalScriptCode.textContent = cmdToCopy;
+        if (modalFilenamePreview) modalFilenamePreview.textContent = `${info.versionFolder}/tiamo-image-editor.umd.js`;
+        if (publishModal) publishModal.style.display = 'flex';
+
+        // 3. 记录日志
+        addLog('[SDK发布]', `发布脚本已就绪并复制到剪贴板: ${cmdToCopy}`, true);
+
+        // 4. 调用后台服务拉起系统终端
+        try {
+          fetch('/api/launch-terminal', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ version: info.ver })
+          }).then(res => res.json()).then(data => {
+            addLog('[系统终端]', `已拉起终端并定位工作区: ${data.cwd || info.cwd}`, true);
+          }).catch(err => {
+            console.warn('[Terminal Launcher] 提示: 静态页面模式下未连接 DevServer，终端未自动弹起', err);
+          });
+        } catch (e) {}
+      });
+    }
+
+    if (btnClosePublishModal) {
+      btnClosePublishModal.addEventListener('click', () => {
+        if (publishModal) publishModal.style.display = 'none';
+      });
+    }
+    if (btnOkPublishModal) {
+      btnOkPublishModal.addEventListener('click', () => {
+        if (publishModal) publishModal.style.display = 'none';
+      });
+    }
+    if (publishModal) {
+      publishModal.addEventListener('click', (e) => {
+        if (e.target === publishModal) {
+          publishModal.style.display = 'none';
+        }
+      });
+    }
+    if (btnCopyFullCmd) {
+      btnCopyFullCmd.addEventListener('click', async () => {
+        const info = getPublishInfo();
+        await copyToClipboard(info.fullCmd);
+        const originalText = btnCopyFullCmd.textContent;
+        btnCopyFullCmd.textContent = '✅ 已复制完整命令！';
+        setTimeout(() => { btnCopyFullCmd.textContent = originalText; }, 2000);
+      });
+    }
+    if (btnCopyShortCmd) {
+      btnCopyShortCmd.addEventListener('click', async () => {
+        const info = getPublishInfo();
+        await copyToClipboard(info.shortCmd);
+        const originalText = btnCopyShortCmd.textContent;
+        btnCopyShortCmd.textContent = '✅ 已复制短命令！';
+        setTimeout(() => { btnCopyShortCmd.textContent = originalText; }, 2000);
+      });
+    }
   </script>
+
+  <!-- SDK 发布状态弹窗 -->
+  <div id="publish-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.65);backdrop-filter:blur(5px);z-index:9999;align-items:center;justify-content:center;padding:1.5rem;">
+    <div style="background:#ffffff;border-radius:1rem;max-width:540px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);border:1px solid #cbd5e1;overflow:hidden;animation:modalIn 0.22s cubic-bezier(0.16,1,0.3,1);">
+      <!-- 弹窗顶栏 -->
+      <div style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);padding:1.15rem 1.5rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155;">
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <div style="width:2.2rem;height:2.2rem;border-radius:0.6rem;background:#10b981;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:1.15rem;box-shadow:0 2px 8px rgba(16,185,129,0.35);">🚀</div>
+          <div>
+            <div style="font-size:1.02rem;font-weight:800;color:#ffffff;">SDK 发布脚本已就绪并复制到剪贴板</div>
+            <div style="font-size:0.75rem;color:#94a3b8;">系统已为您自动拉起终端并定位到项目目录</div>
+          </div>
+        </div>
+        <button id="btn-close-publish-modal" style="background:none;border:none;color:#94a3b8;font-size:1.4rem;cursor:pointer;line-height:1;padding:0.25rem;" title="关闭">&times;</button>
+      </div>
+
+      <!-- 弹窗主体 -->
+      <div style="padding:1.35rem 1.5rem;">
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:0.6rem;padding:0.85rem 1rem;font-size:0.82rem;color:#166534;margin-bottom:1.1rem;display:flex;align-items:flex-start;gap:0.6rem;">
+          <span style="font-size:1.15rem;line-height:1;">✨</span>
+          <div style="line-height:1.55;">
+            <strong>发布脚本已成功复制到剪贴板！</strong><br/>
+            请直接切换到拉起的终端，按下快捷键 <kbd style="background:#ffffff;border:1px solid #86efac;border-radius:4px;padding:2px 6px;font-family:monospace;font-weight:800;color:#15803d;box-shadow:0 1px 2px rgba(0,0,0,0.05);">⌘ + V</kbd> 粘贴并按回车即可全自动执行。
+          </div>
+        </div>
+
+        <div style="margin-bottom:1rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
+            <span style="font-size:0.78rem;font-weight:700;color:#475569;">已复制到剪贴板的指令：</span>
+            <div style="display:flex;gap:0.4rem;">
+              <button id="btn-copy-short-cmd" style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;padding:3px 8px;font-size:0.72rem;font-weight:600;color:#334155;cursor:pointer;" title="复制短命令 (适合已在当前目录的终端)">📋 复制短命令</button>
+              <button id="btn-copy-full-cmd" style="background:#e0f2fe;border:1px solid #bae6fd;border-radius:4px;padding:3px 8px;font-size:0.72rem;font-weight:700;color:#0284c7;cursor:pointer;" title="复制完整命令 (包含 cd 切换路径)">📋 复制完整命令</button>
+            </div>
+          </div>
+          <div id="modal-script-code" style="background:#0f172a;color:#38bdf8;padding:0.85rem 1.1rem;border-radius:0.6rem;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:0.78rem;line-height:1.5;word-break:break-all;user-select:all;border:1px solid #1e293b;box-shadow:inset 0 2px 4px rgba(0,0,0,0.2);">
+            npm run publish:sdk
+          </div>
+        </div>
+
+        <!-- 效果说明 -->
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.6rem;padding:0.9rem 1.1rem;font-size:0.78rem;color:#475569;line-height:1.65;">
+          <div style="font-weight:800;color:#0f172a;margin-bottom:0.35rem;display:flex;align-items:center;gap:0.35rem;">
+            <span>📌</span> 执行脚本的效果：
+          </div>
+          <div>1. 自动执行 <code style="color:#0f172a;background:#e2e8f0;padding:1px 5px;border-radius:3px;font-weight:600;">vite build && tsc</code> 打包最新 SDK 核心文件</div>
+          <div>2. 在目标路径创建版本文件夹：<code style="color:#0369a1;background:#e0f2fe;padding:1px 5px;border-radius:3px;font-weight:700;">..\TiamoLogin\sdk\SDKImgEditor\v1.5.3\</code></div>
+          <div>3. 仅拷贝核心单文件 SDK：<code style="color:#0369a1;background:#e0f2fe;padding:1px 5px;border-radius:3px;font-weight:700;" id="modal-filename-preview">v1.5.3/tiamo-image-editor.umd.js</code></div>
+        </div>
+
+        <!-- 底部按钮 -->
+        <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1.35rem;">
+          <button id="btn-ok-publish-modal" style="background:#2563eb;color:#ffffff;border:none;padding:0.5rem 1.4rem;border-radius:6px;font-size:0.82rem;font-weight:700;cursor:pointer;box-shadow:0 2px 5px rgba(37,99,235,0.25);transition:background 0.15s;">我知道了</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

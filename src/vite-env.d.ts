@@ -5,9 +5,10 @@ declare module '*.css?inline' {
   export default content;
 }
 
+declare const __PROJECT_CWD__: string;
+
 interface Window {
   pdfjsLib?: any;
   GEMINI_API_KEY?: string;
   TiamoImageEditor?: any;
-  MyImageEditor?: any;
 }
