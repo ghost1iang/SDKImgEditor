@@ -443,7 +443,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   const hasColorTools = visibleTools.has('colorPicker') || visibleTools.has('pipette');
 
-  const hasActionTools = visibleTools.has('crop') || visibleTools.has('fill');
+  const hasActionTools = visibleTools.has('crop') || visibleTools.has('fill') || visibleTools.has('hd');
 
   const hasTransformTools = 
     visibleTools.has('flipH') || 
@@ -702,6 +702,23 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   >
                     <PaintBucket size={12} />
                     <span className="text-[10px] font-bold">着色</span>
+                  </button>
+                )}
+
+                {visibleTools.has('hd') && (
+                  <button 
+                    onClick={() => setActiveTool(activeTool === 'hd' ? null : 'hd')} 
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all ${
+                      activeTool === 'hd' 
+                        ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-md active:scale-95' 
+                        : isCompact
+                          ? 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                          : 'text-slate-600 hover:bg-white hover:text-amber-600'
+                    }`} 
+                    title="稀疏高清重构 (等比拖拽外框 8 点控制放大，松开自动高清化)"
+                  >
+                    <Sparkles size={12} strokeWidth={2.5} />
+                    <span className="text-[10px] font-bold">高清</span>
                   </button>
                 )}
               </div>

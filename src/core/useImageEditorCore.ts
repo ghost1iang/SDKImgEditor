@@ -4,10 +4,13 @@ import { SDK_VERSION } from '../version';
 export interface HistoryRecord {
   id: number;
   url: string;
+  originalUrl?: string;
   prompt: string;
   timestamp: string;
   width?: number;
   height?: number;
+  displaySize?: { width: number; height: number };
+  panOffset?: { x: number; y: number };
 }
 
 export interface Point {
@@ -76,6 +79,19 @@ export function useImageEditorCore(options: CoreOptions = {}) {
   const [rotationAngle, setRotationAngle] = useState<number>(0); // 预览角度
   const dragStartData = useRef<any>(null); 
   const mouseDownOutsideRef = useRef<{ x: number; y: number } | null>(null);
+
+  // 稀疏高清重构工具状态
+  const [hdBox, setHdBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const hdBoxRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  useEffect(() => {
+    hdBoxRef.current = hdBox;
+  }, [hdBox]);
+  const [hdDragHandle, setHdDragHandle] = useState<string | null>(null);
+  const hdDragStartRef = useRef<{ clientX: number; clientY: number; box: { x: number; y: number; w: number; h: number } } | null>(null);
+  const [displaySize, setDisplaySize] = useState<{ width: number; height: number } | null>(null);
+  const [hdOriginalImage, setHdOriginalImage] = useState<string | null>(null);
+  const [isComparingOriginal, setIsComparingOriginal] = useState(false);
+  const [isHdProcessing, setIsHdProcessing] = useState(false);
   
   const imageRef = useRef<HTMLImageElement | null>(null);
   const displayMaskRef = useRef<HTMLCanvasElement | null>(null);
@@ -107,7 +123,7 @@ export function useImageEditorCore(options: CoreOptions = {}) {
     setPolyMousePos(null);
     setPolyHoverClose(false);
   };
-  const resetView = () => { setZoom(1); setPanOffset({ x: 0, y: 0 }); };
+  const resetView = () => { setZoom(1); setPanOffset({ x: 0, y: 0 }); setDisplaySize(null); };
   const changeZoom = (delta: number) => setZoom(prev => Math.max(0.5, Math.min(5, Math.round((prev + delta) * 100) / 100)));
   const hasSelection = !!(maskCanvas || selectionRegion || (quadPoints && isPolyClosed));
 
@@ -149,6 +165,8 @@ export function useImageEditorCore(options: CoreOptions = {}) {
       setPrompt("");
       resetWand();
       resetView();
+      setHdOriginalImage(null);
+      setIsComparingOriginal(false);
       setSelectionRegion(null);
       setIsRegionInverted(false);
       setRotationAngle(0);
@@ -272,6 +290,22 @@ export function useImageEditorCore(options: CoreOptions = {}) {
       }
     }
   }, [activeTool, isPolyClosed]);
+
+  useEffect(() => {
+    if (activeTool === 'hd') {
+      if (imageRef.current) {
+        const nw = imageRef.current.naturalWidth;
+        const nh = imageRef.current.naturalHeight;
+        if (nw > 0 && nh > 0) {
+          setHdBox(prev => prev || { x: 0, y: 0, w: nw, h: nh });
+        }
+      }
+      setSelectionRegion(null);
+    } else {
+      setHdBox(null);
+      setHdDragHandle(null);
+    }
+  }, [activeTool, currentImage]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => { if (e.code === 'Space' && !isLoading) setSpacePressed(true); };
@@ -406,8 +440,25 @@ export function useImageEditorCore(options: CoreOptions = {}) {
       return;
     }
 
-    // 非框选/套索类工具（如魔棒、吸管、多边形打点），在画布外点击时作为画布平移处理
-    if (isOutsideImage && activeTool !== 'rect' && activeTool !== 'lasso') {
+    // 高清化 8 点控制拖拽拦截
+    if (activeTool === 'hd') {
+      const hdTarget = (e.target as HTMLElement).closest('[data-hd-handle]') as HTMLElement | null;
+      const targetHandle = hdTarget ? hdTarget.dataset.hdHandle : null;
+      if (targetHandle) {
+        e.preventDefault();
+        e.stopPropagation();
+        setHdDragHandle(targetHandle);
+        hdDragStartRef.current = {
+          clientX: e.clientX,
+          clientY: e.clientY,
+          box: { ...(hdBox || { x: 0, y: 0, w: nw, h: nh }) },
+        };
+        return;
+      }
+    }
+
+    // 非框选/套索/高清类工具（如魔棒、吸管、多边形打点），在画布外点击时作为画布平移处理
+    if (isOutsideImage && activeTool !== 'rect' && activeTool !== 'lasso' && activeTool !== 'hd') {
       if (e.button === 0) {
         setIsPanning(true);
         lastMousePos.current = { x: e.clientX, y: e.clientY };
@@ -509,6 +560,84 @@ export function useImageEditorCore(options: CoreOptions = {}) {
     const imgX = Math.max(0, Math.min(nw, rawX));
     const imgY = Math.max(0, Math.min(nh, rawY));
 
+    if (activeTool === 'hd' && hdDragHandle) {
+      const aspect = nw / nh;
+      let w = nw;
+      let h = nh;
+      let x = 0;
+      let y = 0;
+
+      switch (hdDragHandle) {
+        case 'se': {
+          const scale = Math.max(1, Math.max(rawX / nw, rawY / nh));
+          w = Math.max(nw, Math.round(nw * scale));
+          h = Math.round(w / aspect);
+          x = 0;
+          y = 0;
+          break;
+        }
+        case 'e': {
+          const scale = Math.max(1, rawX / nw);
+          w = Math.max(nw, Math.round(nw * scale));
+          h = Math.round(w / aspect);
+          x = 0;
+          y = Math.round((nh - h) / 2);
+          break;
+        }
+        case 's': {
+          const scale = Math.max(1, rawY / nh);
+          h = Math.max(nh, Math.round(nh * scale));
+          w = Math.round(h * aspect);
+          x = Math.round((nw - w) / 2);
+          y = 0;
+          break;
+        }
+        case 'ne': {
+          const scale = Math.max(1, Math.max(rawX / nw, (nh - rawY) / nh));
+          w = Math.max(nw, Math.round(nw * scale));
+          h = Math.round(w / aspect);
+          x = 0;
+          y = nh - h;
+          break;
+        }
+        case 'n': {
+          const scale = Math.max(1, (nh - rawY) / nh);
+          h = Math.max(nh, Math.round(nh * scale));
+          w = Math.round(h * aspect);
+          x = Math.round((nw - w) / 2);
+          y = nh - h;
+          break;
+        }
+        case 'nw': {
+          const scale = Math.max(1, Math.max((nw - rawX) / nw, (nh - rawY) / nh));
+          w = Math.max(nw, Math.round(nw * scale));
+          h = Math.round(w / aspect);
+          x = nw - w;
+          y = nh - h;
+          break;
+        }
+        case 'w': {
+          const scale = Math.max(1, (nw - rawX) / nw);
+          w = Math.max(nw, Math.round(nw * scale));
+          h = Math.round(w / aspect);
+          x = nw - w;
+          y = Math.round((nh - h) / 2);
+          break;
+        }
+        case 'sw': {
+          const scale = Math.max(1, Math.max((nw - rawX) / nw, rawY / nh));
+          w = Math.max(nw, Math.round(nw * scale));
+          h = Math.round(w / aspect);
+          x = nw - w;
+          y = 0;
+          break;
+        }
+      }
+
+      setHdBox({ x, y, w, h });
+      return;
+    }
+
     if (activeTool === 'quad') {
       if (isPolyClosed && draggingPointIdx !== -1 && quadPoints) {
         let fx = imgX, fy = imgY;
@@ -555,6 +684,7 @@ export function useImageEditorCore(options: CoreOptions = {}) {
       return;
     }
     if (!regionStart && drawingPath.length === 0) return;
+
     if (activeTool === 'rect' && regionStart) {
       const x = Math.min(regionStart.x, imgX), y = Math.min(regionStart.y, imgY);
       const w = Math.abs(regionStart.x - imgX), h = Math.abs(regionStart.y - imgY);
@@ -586,6 +716,22 @@ export function useImageEditorCore(options: CoreOptions = {}) {
       }
     }
 
+    if (activeTool === 'hd' && hdDragHandle) {
+      const box = hdBoxRef.current;
+      setHdDragHandle(null);
+      hdDragStartRef.current = null;
+      if (box && imageRef.current) {
+        const nw = imageRef.current.naturalWidth;
+        const nh = imageRef.current.naturalHeight;
+        if (box.w > nw || box.h > nh) {
+          applySparseHD(Math.round(box.w), Math.round(box.h));
+        } else {
+          setHdBox({ x: 0, y: 0, w: nw, h: nh });
+        }
+      }
+      return;
+    }
+
     if (activeTool === 'rect' && regionStart) {
       setRegionStart(null); 
       // 拖拽宽度或高度过小（单次点击或原地微移），判定为取消/退出框选状态
@@ -606,7 +752,7 @@ export function useImageEditorCore(options: CoreOptions = {}) {
   const handleMouseUpRef = useRef(handleMouseUp);
   handleMouseUpRef.current = handleMouseUp;
 
-  const isDraggingAny = !!(regionStart || isPanning || draggingPointIdx !== -1 || drawingPath.length > 0 || rectDragPoints);
+  const isDraggingAny = !!(regionStart || isPanning || draggingPointIdx !== -1 || drawingPath.length > 0 || rectDragPoints || hdDragHandle);
 
   // 处于拖拽框选、视口平移或定点拉伸状态时，全局接管 mousemove 和 mouseup，彻底杜绝鼠标移出工作区或经过外部 UI 时发生卡顿或丢失拖拽
   useEffect(() => {
@@ -727,6 +873,184 @@ export function useImageEditorCore(options: CoreOptions = {}) {
     clearSelection();
     setIsLoading(false);
   };
+
+  /**
+   * 稀疏插值超分高清化算法 (按步骤 3.1 ~ 3.7 执行)
+   * 3.1、新的高宽叫 W' 和 H'
+   * 3.2、原图宽度x2，原始像素+空白像素+原始像素+空白像素重复
+   * 3.3、原图高度x2，原始像素+空白像素+原始像素+空白像素重复
+   * 3.4、横向填充，用两个原始像素的平均值填充中间的空白像素
+   * 3.5、纵向填充，用两个已有像素的平均值填充中间的空白像素
+   * 3.6、是否 2W > W' 且 2H > H'，否责回到 3.2 再来一次，是就进入 3.7
+   * 3.7、把生成的高清化结果缩小到 W' x H'
+   */
+  const applySparseHD = useCallback((targetW: number, targetH: number) => {
+    if (!currentImage || !imageRef.current) return;
+    const img = imageRef.current;
+    const origW = img.naturalWidth;
+    const origH = img.naturalHeight;
+    const origClientW = img.clientWidth;
+    const origClientH = img.clientHeight;
+
+    if (targetW <= origW && targetH <= origH) {
+      return;
+    }
+
+    const box = hdBoxRef.current ? { ...hdBoxRef.current } : { x: 0, y: 0, w: targetW, h: targetH };
+    const currentPan = { ...panOffset };
+    const currentZoom = zoom;
+    const originalImgUrl = currentImage;
+
+    // 纯静默重构：绝不触发全局 isLoading，坚决避免画布发生任何模糊、渐变、闪烁或遮罩加载动画
+    setIsHdProcessing(true);
+
+    setTimeout(() => {
+      try {
+        let curCanvas = document.createElement('canvas');
+        curCanvas.width = origW;
+        curCanvas.height = origH;
+        const curCtx = curCanvas.getContext('2d')!;
+        curCtx.drawImage(img, 0, 0);
+
+        let curW = origW;
+        let curH = origH;
+
+        // 3.2 ~ 3.6 循环执行稀疏化与双向插值
+        while (true) {
+          // 3.2 & 3.3: 宽高各 x2
+          const nextW = curW * 2;
+          const nextH = curH * 2;
+
+          const srcCtx = curCanvas.getContext('2d')!;
+          const srcData = srcCtx.getImageData(0, 0, curW, curH).data;
+
+          const nextCanvas = document.createElement('canvas');
+          nextCanvas.width = nextW;
+          nextCanvas.height = nextH;
+          const nextCtx = nextCanvas.getContext('2d')!;
+          const nextImageData = nextCtx.createImageData(nextW, nextH);
+          const nextData = nextImageData.data;
+
+          // 放置原始像素，其余为空白像素
+          for (let y = 0; y < curH; y++) {
+            for (let x = 0; x < curW; x++) {
+              const sIdx = (y * curW + x) * 4;
+              const tIdx = ((y * 2) * nextW + (x * 2)) * 4;
+              nextData[tIdx] = srcData[sIdx];
+              nextData[tIdx + 1] = srcData[sIdx + 1];
+              nextData[tIdx + 2] = srcData[sIdx + 2];
+              nextData[tIdx + 3] = srcData[sIdx + 3];
+            }
+          }
+
+          // 3.4: 横向填充，用两个原始像素的平均值填充中间的空白像素
+          for (let y = 0; y < nextH; y += 2) {
+            for (let x = 0; x < nextW - 2; x += 2) {
+              const lIdx = (y * nextW + x) * 4;
+              const rIdx = (y * nextW + x + 2) * 4;
+              const mIdx = (y * nextW + x + 1) * 4;
+              for (let c = 0; c < 4; c++) {
+                nextData[mIdx + c] = Math.round((nextData[lIdx + c] + nextData[rIdx + c]) / 2);
+              }
+            }
+            // 边缘最后一列处理 (复制倒数第二列)
+            const lastPrev = (y * nextW + nextW - 2) * 4;
+            const last = (y * nextW + nextW - 1) * 4;
+            for (let c = 0; c < 4; c++) {
+              nextData[last + c] = nextData[lastPrev + c];
+            }
+          }
+
+          // 3.5: 纵向填充，用两个已有像素的平均值填充中间的空白像素
+          for (let x = 0; x < nextW; x++) {
+            for (let y = 0; y < nextH - 2; y += 2) {
+              const tIdx = (y * nextW + x) * 4;
+              const bIdx = ((y + 2) * nextW + x) * 4;
+              const mIdx = ((y + 1) * nextW + x) * 4;
+              for (let c = 0; c < 4; c++) {
+                nextData[mIdx + c] = Math.round((nextData[tIdx + c] + nextData[bIdx + c]) / 2);
+              }
+            }
+            // 边缘最后一行处理 (复制倒数第二行)
+            const lastPrev = ((nextH - 2) * nextW + x) * 4;
+            const last = ((nextH - 1) * nextW + x) * 4;
+            for (let c = 0; c < 4; c++) {
+              nextData[last + c] = nextData[lastPrev + c];
+            }
+          }
+
+          nextCtx.putImageData(nextImageData, 0, 0);
+          curCanvas = nextCanvas;
+          curW = nextW;
+          curH = nextH;
+
+          // 3.6: 是否 2W > W' 且 2H > H'
+          if (curW >= targetW && curH >= targetH) {
+            break;
+          }
+        }
+
+        // 3.7: 把生成的高清化结果缩小到 W' x H'
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = targetW;
+        finalCanvas.height = targetH;
+        const finalCtx = finalCanvas.getContext('2d')!;
+        finalCtx.imageSmoothingEnabled = true;
+        finalCtx.imageSmoothingQuality = 'high';
+        finalCtx.drawImage(curCanvas, 0, 0, targetW, targetH);
+
+        const newBase64 = finalCanvas.toDataURL('image/png');
+
+        // 计算物理显示尺寸与画布中心补正，确保高清化后严格在所拖拽的 HDBox 原始像素位置显示，画面不产生任何跳动与弹跳
+        const ratio = targetW / origW;
+        const targetDisplayW = Math.round(origClientW * ratio);
+        const targetDisplayH = Math.round(origClientH * ratio);
+
+        const offsetX = origClientW * (box.x / origW);
+        const offsetY = origClientH * (box.y / origH);
+
+        const centerShiftX = offsetX + (targetDisplayW - origClientW) / 2;
+        const centerShiftY = offsetY + (targetDisplayH - origClientH) / 2;
+
+        const newPanX = Math.round(currentPan.x + centerShiftX * currentZoom);
+        const newPanY = Math.round(currentPan.y + centerShiftY * currentZoom);
+
+        const newRecord: HistoryRecord = {
+          id: Date.now(),
+          url: newBase64,
+          originalUrl: originalImgUrl,
+          prompt: `稀疏高清重构: ${targetW} × ${targetH} (${Math.round((targetW / origW) * 100)}%)`,
+          timestamp: new Date().toLocaleTimeString(),
+          width: targetW,
+          height: targetH,
+          displaySize: { width: targetDisplayW, height: targetDisplayH },
+          panOffset: { x: newPanX, y: newPanY },
+        };
+
+        setCurrentImage(newBase64);
+        setHdOriginalImage(originalImgUrl);
+        setIsComparingOriginal(false);
+        setDisplaySize({ width: targetDisplayW, height: targetDisplayH });
+        setPanOffset({ x: newPanX, y: newPanY });
+        setActiveRecord(newRecord);
+        setHistory(prev => [newRecord, ...prev]);
+        setMaskCanvas(null);
+        setLastClickPos(null);
+        setQuadPoints(null);
+        setIsPolyClosed(false);
+        setPolyHoverClose(false);
+        setPolyMousePos(null);
+        setSelectionRegion(null);
+        setActiveTool('hd'); // 确保高清工具全程保持激活，绝不退出
+        setHdBox({ x: 0, y: 0, w: targetW, h: targetH }); // 全程保持 8 点触控框，并自动贴合放大后的新尺寸，支持后续继续拉大
+      } catch (err: any) {
+        console.error('[SparseHD Error]', err);
+        setErrorMessage(`高清化重构异常: ${err?.message || err}`);
+      } finally {
+        setIsHdProcessing(false);
+      }
+    }, 40);
+  }, [currentImage, panOffset, zoom, resetWand]);
 
   const handleApplyQuadCrop = () => {
     if (!quadPoints || !currentImage || !imageRef.current) return;
@@ -1230,6 +1554,16 @@ export function useImageEditorCore(options: CoreOptions = {}) {
     setSampledColor,
     fillColor,
     setFillColor,
+    hdBox,
+    setHdBox,
+    hdDragHandle,
+    applySparseHD,
+    displaySize,
+    setDisplaySize,
+    hdOriginalImage,
+    isComparingOriginal,
+    setIsComparingOriginal,
+    isHdProcessing,
     quadPoints,
     setQuadPoints,
     isPolyClosed,

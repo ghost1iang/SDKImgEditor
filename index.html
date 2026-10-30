@@ -35,7 +35,7 @@
   <!-- 离线兼容：本地直接双击打开 (file://) 时，同步注入独立单文件 UMD SDK -->
   <script>
     if (!window.location.protocol.startsWith('http')) {
-      document.write('<script src="./dist/tiamo-image-editor.umd.js"><\/script>');
+      document.write('<script src="./dist/tiamo-image-editor.umd.js?t=1793402164749"><\/script>');
     }
   </script>
 
@@ -650,7 +650,7 @@
           </div>
         </div>
         <div class="config-preset-actions">
-          <span class="tools-count-badge" id="tools-selected-count">已选: 22/22</span>
+          <span class="tools-count-badge" id="tools-selected-count">已选: 24/24</span>
           <button type="button" class="preset-btn active" id="btn-preset-all">全部显示</button>
           <button type="button" class="preset-btn" id="btn-preset-recommend">常用推荐 (12)</button>
           <button type="button" class="preset-btn" id="btn-preset-cutout">纯抠图 (8)</button>
@@ -697,10 +697,11 @@
 
         <!-- 分类 4: 选区操作 -->
         <div class="tools-group">
-          <div class="group-title">选区操作</div>
+          <div class="group-title">选区与高清</div>
           <div class="group-items">
             <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="crop" checked /><span>按区剪裁</span></label>
             <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="fill" checked /><span>选区着色</span></label>
+            <label class="tool-checkbox-item"><input type="checkbox" class="tool-config-checkbox" value="hd" checked /><span>稀疏高清</span></label>
           </div>
         </div>
 
@@ -911,7 +912,7 @@
     const ALL_TOOLS = [
       'rect', 'cropAuto', 'lasso', 'quad', 'invert', 'clear',
       'alphaMask', 'wand', 'wandMode', 'tolerance', 'erase',
-      'colorPicker', 'pipette', 'crop', 'fill',
+      'colorPicker', 'pipette', 'crop', 'fill', 'hd',
       'flipH', 'flipV', 'rotateCcw', 'rotateCw', 'rotateAny',
       'download', 'upload', 'settings'
     ];
@@ -1157,7 +1158,7 @@
 
     function getPublishInfo() {
       const editor = getEditor();
-      let ver = (editor && editor.version) || (window.TiamoImageEditor && window.TiamoImageEditor.version) || '1.5.3';
+      let ver = (editor && editor.version) || (window.TiamoImageEditor && window.TiamoImageEditor.version) || '1.6.0';
       ver = ver.replace(/^[vV]/, '');
       const versionFolder = `v${ver}`;
       const cwd = typeof __PROJECT_CWD__ !== 'undefined' ? __PROJECT_CWD__ : '/Users/leonhe/Documents/TiamoProject/SDKImgEditor';
@@ -1300,8 +1301,8 @@
             <span>📌</span> 执行脚本的效果：
           </div>
           <div>1. 自动执行 <code style="color:#0f172a;background:#e2e8f0;padding:1px 5px;border-radius:3px;font-weight:600;">vite build && tsc</code> 打包最新 SDK 核心文件</div>
-          <div>2. 在目标路径创建版本文件夹：<code style="color:#0369a1;background:#e0f2fe;padding:1px 5px;border-radius:3px;font-weight:700;">..\TiamoLogin\sdk\SDKImgEditor\v1.5.3\</code></div>
-          <div>3. 仅拷贝核心单文件 SDK：<code style="color:#0369a1;background:#e0f2fe;padding:1px 5px;border-radius:3px;font-weight:700;" id="modal-filename-preview">v1.5.3/tiamo-image-editor.umd.js</code></div>
+          <div>2. 在目标路径创建版本文件夹：<code style="color:#0369a1;background:#e0f2fe;padding:1px 5px;border-radius:3px;font-weight:700;" id="modal-version-folder-preview">..\TiamoLogin\sdk\SDKImgEditor\v1.6.0\</code></div>
+          <div>3. 仅拷贝核心单文件 SDK：<code style="color:#0369a1;background:#e0f2fe;padding:1px 5px;border-radius:3px;font-weight:700;" id="modal-filename-preview">v1.6.0/tiamo-image-editor.umd.js</code></div>
         </div>
 
         <!-- 底部按钮 -->

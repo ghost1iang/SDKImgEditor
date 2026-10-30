@@ -44,6 +44,14 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
     draggingPointIdx,
     rectDragPoints,
     handleUpload,
+    hdBox,
+    applySparseHD,
+    hdDragHandle,
+    displaySize,
+    hdOriginalImage,
+    isComparingOriginal,
+    setIsComparingOriginal,
+    isHdProcessing,
   } = core;
 
   const workspaceRef = useRef<HTMLDivElement | null>(null);
@@ -56,8 +64,8 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
       onMouseMove={handleMouseMove} 
       onMouseUp={handleMouseUp} 
       onMouseLeave={() => {
-        // 拖拽/框选过程中由 window 全局监听接管，移出工作区绝不中断拖拽；仅非拖拽时才安全重置
-        if (!core.regionStart && !isPanning && draggingPointIdx === -1 && drawingPath.length === 0) {
+        // 拖拽/框选/高清放大过程中由 window 全局监听接管，移出工作区绝不中断拖拽；仅非拖拽时才安全重置
+        if (!core.regionStart && !isPanning && draggingPointIdx === -1 && drawingPath.length === 0 && !core.rectDragPoints && !hdDragHandle) {
           handleMouseUp();
         }
       }}
@@ -80,24 +88,116 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
         </div>
       )}
 
-      {/* 画布中央区域 */}
+      {/* 稀疏高清：贴附于图形上方的常驻信息与操作栏 (跟随图形浮动，智能贴边规避视口顶端遮挡裁切) */}
+      {activeTool === 'hd' && imageRef.current && workspaceRef.current && (() => {
+        const wsRect = workspaceRef.current.getBoundingClientRect();
+        const imgRect = imageRef.current.getBoundingClientRect();
+        const nw = imageRef.current.naturalWidth;
+        const nh = imageRef.current.naturalHeight;
+        if (!nw || !nh || !wsRect.width || !wsRect.height) return null;
+
+        const isDragging = !!hdDragHandle;
+        const curBox = hdBox || { x: 0, y: 0, w: nw, h: nh };
+
+        // 计算 HDBox 顶边 Y 与 水平中心 X 在工作区视口内的绝对像素坐标
+        let boxTop = imgRect.top - wsRect.top;
+        let boxCenterX = imgRect.left + imgRect.width / 2 - wsRect.left;
+
+        if (isDragging) {
+          boxTop = imgRect.top + (curBox.y / nh) * imgRect.height - wsRect.top;
+          boxCenterX = imgRect.left + ((curBox.x + curBox.w / 2) / nw) * imgRect.width - wsRect.left;
+        }
+
+        const badgeH = 34; // 胶囊高度估算
+        const offset = 10; // 与图形顶部的间距
+
+        // 默认贴在图形顶边正上方：boxTop - badgeH - offset
+        // 当图形上移靠近视口顶端（甚至被顶边切出）时，智能吸附在视口安全顶边 (8px)，彻底消除剪裁
+        let targetY = boxTop - badgeH - offset;
+        if (targetY < 8) {
+          targetY = 8;
+        }
+
+        const ratio = Math.round((curBox.w / nw) * 100);
+
+        return (
+          <div 
+            className="absolute z-40 pointer-events-auto transition-none"
+            style={{
+              left: `${boxCenterX}px`,
+              top: `${targetY}px`,
+              transform: 'translateX(-50%)',
+            }}
+          >
+            <div className="bg-slate-900/95 text-amber-300 font-mono text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-2xl border border-amber-500/60 backdrop-blur-md flex items-center gap-2.5 whitespace-nowrap">
+              <span className={`w-2 h-2 rounded-full ${isHdProcessing ? 'bg-amber-400 animate-ping' : 'bg-amber-400'}`} />
+              <span>
+                {isHdProcessing 
+                  ? '⚡ 正在重构高清像素...' 
+                  : `${Math.round(curBox.w)} × ${Math.round(curBox.h)} px (${ratio}%)`}
+              </span>
+
+              {/* 原图 / 高清 实时按住对比 */}
+              {hdOriginalImage && (
+                <button
+                  type="button"
+                  onMouseDown={(e) => { e.stopPropagation(); setIsComparingOriginal(true); }}
+                  onMouseUp={(e) => { e.stopPropagation(); setIsComparingOriginal(false); }}
+                  onMouseLeave={() => setIsComparingOriginal(false)}
+                  onTouchStart={(e) => { e.stopPropagation(); setIsComparingOriginal(true); }}
+                  onTouchEnd={(e) => { e.stopPropagation(); setIsComparingOriginal(false); }}
+                  className={`ml-1 px-2 py-0.5 rounded text-[10px] font-bold transition-all shadow-sm flex items-center gap-1 cursor-pointer select-none ${
+                    isComparingOriginal 
+                      ? 'bg-blue-600 text-white ring-2 ring-blue-400' 
+                      : 'bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white border border-slate-700'
+                  }`}
+                  title="按住鼠标查看原图，松开恢复高清图"
+                >
+                  <span>👁️</span>
+                  <span>{isComparingOriginal ? '当前显示: 原图' : '按住对比原图'}</span>
+                </button>
+              )}
+
+              <div className="flex items-center gap-1 ml-1 pl-2 border-l border-slate-700">
+                {[1.5, 2, 3, 4].map(mul => (
+                  <button
+                    key={mul}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const nw = imageRef.current?.naturalWidth || 1;
+                      const nh = imageRef.current?.naturalHeight || 1;
+                      applySparseHD(Math.round(nw * mul), Math.round(nh * mul));
+                    }}
+                    className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-amber-600 text-[10px] text-white transition-colors"
+                    title={`快速高清放大至 ${mul}x`}
+                  >
+                    {mul}x
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* 画布中央区域 (移除 CSS 过渡动画，避免高清重构与坐标变换时发生弹跳与橡皮筋晃动) */}
       <div 
-        className="min-h-full min-w-full flex items-center justify-center relative transition-all" 
-        style={{ transform: `translate(${panOffset.x}px, ${panOffset.y}px)`, transition: isPanning ? 'none' : 'transform 0.1s ease-out' }}
+        className="min-h-full min-w-full flex items-center justify-center relative" 
+        style={{ transform: `translate(${panOffset.x}px, ${panOffset.y}px)` }}
       >
         {currentImage ? (
           <div 
-            className="relative transition-transform duration-200 inline-block pointer-events-none" 
+            className="relative inline-block pointer-events-none" 
             style={{ transform: `scale(${zoom}) rotate(${rotationAngle}deg)`, transformOrigin: 'center center' }}
           >
             <div className={`relative overflow-hidden shadow-[0_32px_64px_-12px_rgba(0,0,0,0.2)] border-4 border-white select-none pointer-events-auto leading-[0] transition-colors ${showAlphaMask ? 'alpha-mask-bg' : 'bg-white/5'}`}>
               <img 
                 ref={imageRef} 
-                src={currentImage} 
+                src={isComparingOriginal && hdOriginalImage ? hdOriginalImage : currentImage} 
                 alt="Workspace" 
                 draggable="false" 
-                className={`max-w-none transition-all duration-300 ${isLoading ? 'blur-xl opacity-30' : 'opacity-100'}`} 
-                style={{ maxHeight: '70vh' }} 
+                className={`max-w-none select-none pointer-events-auto ${isLoading ? 'blur-xl opacity-30' : 'opacity-100'}`} 
+                style={displaySize ? { width: `${displaySize.width}px`, height: `${displaySize.height}px`, maxWidth: 'none', maxHeight: 'none' } : { maxHeight: '70vh' }} 
               />
               <canvas ref={displayMaskRef} className="absolute inset-0 pointer-events-none w-full h-full" />
               
@@ -246,6 +346,61 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
                 </div>
               )}
             </div>
+
+            {/* 稀疏高清 8 点控制框 (位于 overflow-hidden 外部，放大拖拽不被裁切) */}
+            {activeTool === 'hd' && hdBox && imageRef.current && (() => {
+              const nw = imageRef.current.naturalWidth;
+              const nh = imageRef.current.naturalHeight;
+              if (!nw || !nh) return null;
+
+              // 未处于手柄拖拽阶段时，外框 100% 绝对紧贴当前图片边界，彻底杜绝任何多重缩放放大一圈的问题
+              const isDragging = !!hdDragHandle;
+              const leftPct = isDragging ? (hdBox.x / nw) * 100 : 0;
+              const topPct = isDragging ? (hdBox.y / nh) * 100 : 0;
+              const widthPct = isDragging ? (hdBox.w / nw) * 100 : 100;
+              const heightPct = isDragging ? (hdBox.h / nh) * 100 : 100;
+
+              const handles = [
+                { id: 'nw', x: '0%', y: '0%', cursor: 'nwse-resize' },
+                { id: 'n', x: '50%', y: '0%', cursor: 'ns-resize' },
+                { id: 'ne', x: '100%', y: '0%', cursor: 'nesw-resize' },
+                { id: 'e', x: '100%', y: '50%', cursor: 'ew-resize' },
+                { id: 'se', x: '100%', y: '100%', cursor: 'nwse-resize' },
+                { id: 's', x: '50%', y: '100%', cursor: 'ns-resize' },
+                { id: 'sw', x: '0%', y: '100%', cursor: 'nesw-resize' },
+                { id: 'w', x: '0%', y: '50%', cursor: 'ew-resize' },
+              ];
+
+              return (
+                <div 
+                  className="absolute pointer-events-none z-30"
+                  style={{
+                    left: `${leftPct}%`,
+                    top: `${topPct}%`,
+                    width: `${widthPct}%`,
+                    height: `${heightPct}%`,
+                  }}
+                >
+                  {/* 高清外框边框 */}
+                  <div className="absolute inset-0 border-2 border-dashed border-amber-500 bg-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.25)]" />
+
+                  {/* 8 个控制手柄 */}
+                  {handles.map(h => (
+                    <div
+                      key={h.id}
+                      data-hd-handle={h.id}
+                      className="absolute w-3.5 h-3.5 bg-white border-2 border-amber-600 rounded-sm shadow-md pointer-events-auto transition-transform hover:scale-125"
+                      style={{
+                        left: h.x,
+                        top: h.y,
+                        cursor: h.cursor,
+                        transform: `translate(-50%, -50%) scale(${1 / zoom})`,
+                      }}
+                    />
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-300 rounded-3xl text-center bg-white/50">

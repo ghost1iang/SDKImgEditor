@@ -1,13 +1,13 @@
 {
   "name": "tiamo-image-editor-sdk",
-  "version": "1.5.3",
+  "version": "1.6.0",
   "description": "Zero-dependency Image Editor SDK with modal, in-place toolbar, and distributed modes",
   "main": "dist/tiamo-image-editor.umd.js",
   "module": "dist/tiamo-image-editor.es.js",
   "types": "dist/types/index.d.ts",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && tsc",
+    "build": "vite build && tsc && node scripts/sync-html-timestamp.mjs",
     "build:sdk": "vite build && tsc && node scripts/publish-sdk.mjs",
     "publish:sdk": "npm run build && node scripts/publish-sdk.mjs",
     "preview": "vite preview"

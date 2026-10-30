@@ -13,6 +13,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { syncHtmlTimestamp } from './sync-html-timestamp.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -88,6 +89,9 @@ fs.copyFileSync(umdFile, targetFile);
 
 const sizeKb = (fs.statSync(targetFile).size / 1024).toFixed(1);
 console.log(`✅ [已同步] ${versionFolder}/tiamo-image-editor.umd.js (${sizeKb} KB)`);
+
+// 5. 同步 index.html 中 UMD 引入的时间戳为文件真实修改时间
+syncHtmlTimestamp();
 
 console.log('----------------------------------------------------');
 console.log(`🎉 发布成功！`);

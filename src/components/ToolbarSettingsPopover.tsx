@@ -24,7 +24,8 @@ import {
   Compass,
   Download,
   Upload,
-  Settings
+  Settings,
+  Sparkles
 } from 'lucide-react';
 import { 
   ToolbarToolId, 
@@ -51,6 +52,7 @@ const TOOL_ICONS: Record<ToolbarToolId, React.ReactNode> = {
   pipette: <Pipette size={13} />,
   crop: <Scissors size={13} />,
   fill: <PaintBucket size={13} />,
+  hd: <Sparkles size={13} />,
   flipH: <FlipHorizontal2 size={13} />,
   flipV: <FlipVertical2 size={13} />,
   rotateCcw: <RotateCcw size={13} />,

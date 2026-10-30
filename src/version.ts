@@ -1,3 +1,3 @@
-export const SDK_VERSION = 'v1.5.3';
-export const SDK_BUILD_TIME = '2026-10-31 07:37';
-export const SDK_DESCRIPTION = '固定显示矩形选框左上角与右下角物理坐标，选区存续期间持续常驻显示，支持全视口防遮挡智能钳制';
+export const SDK_VERSION = 'v1.6.0';
+export const SDK_BUILD_TIME = '2026-10-31 10:15';
+export const SDK_DESCRIPTION = '新增稀疏高清重构工具（等比8点控制放大、稀疏打散双向均值插值、视口防裁切智能贴顶、原图按住即时对比）与基于构建修改时间戳的自动化防缓存机制';

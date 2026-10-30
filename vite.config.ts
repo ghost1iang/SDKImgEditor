@@ -1,6 +1,7 @@
 import { defineConfig, Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import fs from 'fs';
 import { exec } from 'child_process';
 
 function terminalLauncherPlugin(): Plugin {
@@ -45,13 +46,37 @@ function terminalLauncherPlugin(): Plugin {
   };
 }
 
+function distTimestampPlugin(): Plugin {
+  return {
+    name: 'dist-timestamp',
+    transformIndexHtml(html) {
+      try {
+        const umdPath = path.resolve(process.cwd(), 'dist/tiamo-image-editor.umd.js');
+        if (fs.existsSync(umdPath)) {
+          const stat = fs.statSync(umdPath);
+          const timestamp = Math.floor(stat.mtimeMs || stat.ctimeMs);
+          return html.replace(
+            /(['"]\.\/dist\/tiamo-image-editor\.umd\.js)(\?t=\d+)?(['"])/g,
+            `$1?t=${timestamp}$3`
+          );
+        }
+      } catch (e) {
+        console.warn('[distTimestampPlugin] Failed to read mtime:', e);
+      }
+      return html;
+    },
+  };
+}
+
 export default defineConfig(({ command }) => ({
-  plugins: [react(), terminalLauncherPlugin()],
+  plugins: [react(), terminalLauncherPlugin(), distTimestampPlugin()],
   define: {
     ...(command === 'build' ? { 'process.env.NODE_ENV': JSON.stringify('production') } : {}),
     '__PROJECT_CWD__': JSON.stringify(process.cwd()),
   },
   server: {
+    host: '0.0.0.0',
+    port: 5173,
     headers: {
       'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
       'Pragma': 'no-cache',

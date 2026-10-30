@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图像像素稀疏化工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #f1f5f9;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem;
+            overflow: hidden;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        .main-card {
+            max-height: 98vh;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 1000px;
+        }
+        .view-area {
+            position: relative;
+            background-image: linear-gradient(45deg, #e2e8f0 25%, transparent 25%), 
+                              linear-gradient(-45deg, #e2e8f0 25%, transparent 25%), 
+                              linear-gradient(45deg, transparent 75%, #e2e8f0 75%), 
+                              linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
+            background-size: 12px 12px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            border: 1px solid #cbd5e1;
+            flex-grow: 1;
+            min-height: 250px;
+            user-select: none;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            image-rendering: pixelated; 
+            max-width: 100%;
+            max-height: 60vh;
+            object-fit: contain;
+            pointer-events: none; 
+        }
+        
+        /* 矩形裁剪样式 */
+        #rectCropOverlay {
+            position: absolute;
+            border: 2px solid #3b82f6;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+            cursor: move;
+            display: none;
+            z-index: 100;
+        }
+        .handle {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: white;
+            border: 2px solid #3b82f6;
+            z-index: 110;
+        }
+        .nw { top: -7px; left: -7px; cursor: nw-resize; }
+        .ne { top: -7px; right: -7px; cursor: ne-resize; }
+        .sw { bottom: -7px; left: -7px; cursor: sw-resize; }
+        .se { bottom: -7px; right: -7px; cursor: se-resize; }
+
+        /* 自由裁剪样式 */
+        .free-handle {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: #3b82f6;
+            border: 2px solid white;
+            border-radius: 50%;
+            margin-left: -8px;
+            margin-top: -8px;
+            cursor: crosshair;
+            z-index: 120;
+            display: none;
+            box-shadow: 0 0 6px rgba(0,0,0,0.4);
+        }
+        #freeCropPolygon {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: auto;
+            z-index: 110;
+            display: none;
+            cursor: move;
+        }
+
+        .icon-btn.locked { color: #2563eb; background-color: #dbeafe; border-color: #3b82f6; }
+        .active-btn { background-color: #3b82f6 !important; color: white !important; }
+        .drag-active { border-color: #3b82f6; background-color: #eff6ff; outline: 2px solid #3b82f6; }
+        input[type="number"]::-webkit-inner-spin-button { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="bg-white rounded-xl shadow-xl p-4 main-card">
+        <header class="mb-3 flex flex-wrap justify-between items-center border-b pb-3 gap-2">
+            <div class="flex items-center gap-2">
+                <h1 class="text-xl font-black text-slate-800 tracking-tight">像素处理终端</h1>
+                
+                <div id="settingsSection" class="hidden flex flex-wrap items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
+                    <!-- 全局锁定按钮 -->
+                    <button id="lockBtn" class="icon-btn locked p-2 mx-1 rounded-md border bg-white transition-all hover:border-blue-400 shrink-0" title="切换宽高比锁定">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    </button>
+
+                    <div class="h-6 w-px bg-slate-300 mx-1"></div>
+
+                    <!-- 常规工具栏 -->
+                    <div id="normalTools" class="flex flex-wrap items-center gap-2 px-1">
+                        <div class="flex items-center gap-1.5 bg-white px-2 py-1 rounded border">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase">W</span>
+                            <input type="number" id="inputW" class="w-16 text-xs font-mono outline-none">
+                            <div class="h-3 w-px bg-slate-200"></div>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase">H</span>
+                            <input type="number" id="inputH" class="w-16 text-xs font-mono outline-none">
+                        </div>
+                        
+                        <label class="flex items-center gap-1 px-2 cursor-pointer hover:bg-white rounded py-1 transition-colors">
+                            <input type="checkbox" id="smoothingToggle" class="w-3.5 h-3.5 text-blue-600 rounded">
+                            <span class="text-[10px] text-slate-600 font-bold uppercase">平滑缩放</span>
+                        </label>
+
+                        <button id="btnResize" class="text-xs bg-blue-600 text-white px-3 py-1.5 rounded shadow-sm hover:bg-blue-700 font-bold transition-all">执行缩放</button>
+                        
+                        <div class="h-6 w-px bg-slate-300 mx-1"></div>
+                        
+                        <div class="flex gap-1">
+                            <button id="btnMirrorH" class="p-1.5 bg-white border rounded hover:bg-slate-50 transition-all" title="水平镜像">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20M5 7l-2 5 2 5M19 7l2 5-2 5"/></svg>
+                            </button>
+                            <button id="btnMirrorV" class="p-1.5 bg-white border rounded hover:bg-slate-50 transition-all" title="垂直镜像">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20M17 5l-5-2-5 2M17 19l-5 2-5-2"/></svg>
+                            </button>
+                        </div>
+
+                        <div class="h-6 w-px bg-slate-300 mx-1"></div>
+                        <button id="btnSparse" class="text-xs bg-orange-500 text-white px-3 py-1.5 rounded shadow-sm hover:bg-orange-600 font-bold transition-all">稀疏化(2n-1)</button>
+                        <button id="btnCropMode" class="text-xs bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded hover:bg-slate-50 font-bold transition-all">进入剪裁</button>
+                    </div>
+
+                    <!-- 剪裁工具栏 -->
+                    <div id="cropBar" class="hidden flex items-center gap-2 px-2 bg-blue-50/80 rounded-md py-1 animate-in fade-in slide-in-from-left-2">
+                        <div class="flex p-0.5 bg-white rounded border border-blue-200">
+                            <button id="modeRect" class="text-[10px] active-btn px-2 py-1 rounded transition-all">矩形</button>
+                            <button id="modeFree" class="text-[10px] px-2 py-1 rounded transition-all">自由选区</button>
+                        </div>
+                        
+                        <div id="rectSizeInputs" class="flex items-center gap-1.5 bg-white px-2 py-1 rounded border border-blue-200">
+                            <span class="text-[9px] font-bold text-blue-500">框W</span>
+                            <input type="number" id="cropInputW" class="w-14 text-xs font-mono outline-none text-blue-600">
+                            <span class="text-[9px] font-bold text-blue-500">框H</span>
+                            <input type="number" id="cropInputH" class="w-14 text-xs font-mono outline-none text-blue-600">
+                        </div>
+
+                        <div class="h-6 w-px bg-blue-200"></div>
+                        
+                        <button id="toggleLR" class="text-[10px] bg-white border border-blue-200 px-2 py-1 rounded hover:bg-blue-100">左右预设</button>
+                        <button id="toggleTB" class="text-[10px] bg-white border border-blue-200 px-2 py-1 rounded hover:bg-blue-100">上下预设</button>
+                        
+                        <div class="h-6 w-px bg-blue-200"></div>
+                        
+                        <button id="confirmCrop" class="text-xs bg-blue-600 text-white px-4 py-1.5 rounded font-bold shadow-md hover:bg-blue-700 transition-all">确认应用</button>
+                        <button id="cancelCrop" class="text-xs text-slate-500 hover:text-red-500 font-bold px-2 transition-colors">取消</button>
+                    </div>
+                </div>
+            </div>
+            <button id="resetBtn" class="hidden text-xs text-slate-400 hover:text-blue-600 transition-colors">重置画布</button>
+        </header>
+
+        <div class="view-area bg-slate-50" id="mainViewArea">
+            <div id="dropHint" class="absolute inset-0 z-10 flex flex-col items-center justify-center cursor-pointer">
+                <div class="bg-white p-8 rounded-2xl shadow-sm border-2 border-dashed border-slate-300 flex flex-col items-center gap-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-14 w-14 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p class="text-slate-500 font-bold">点击或拖拽图片至此导入</p>
+                    <p class="text-slate-300 text-xs uppercase tracking-widest">PNG, JPG, WEBP</p>
+                </div>
+                <input type="file" id="fileInput" class="hidden" accept="image/*">
+            </div>
+
+            <canvas id="mainCanvas" class="hidden"></canvas>
+            
+            <div id="rectCropOverlay">
+                <div class="handle nw" data-handle="nw"></div>
+                <div class="handle ne" data-handle="ne"></div>
+                <div class="handle sw" data-handle="sw"></div>
+                <div class="handle se" data-handle="se"></div>
+            </div>
+
+            <svg id="freeCropPolygon"><polygon points="" fill="rgba(59, 130, 246, 0.3)" stroke="#3b82f6" stroke-width="2" stroke-dasharray="4" /></svg>
+            <div id="p0" class="free-handle" data-id="0"></div>
+            <div id="p1" class="free-handle" data-id="1"></div>
+            <div id="p2" class="free-handle" data-id="2"></div>
+            <div id="p3" class="free-handle" data-id="3"></div>
+        </div>
+
+        <div id="actionSection" class="hidden mt-3 flex items-center justify-between gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+            <div class="flex items-center gap-3">
+                <div class="flex flex-col">
+                    <span class="text-[9px] font-black text-slate-400 uppercase tracking-tighter">当前分辨率</span>
+                    <span id="infoDim" class="text-sm font-mono font-bold text-slate-700">0 × 0</span>
+                </div>
+            </div>
+            
+            <div class="flex gap-2">
+                <div class="flex gap-1.5 border-r border-slate-200 pr-3">
+                    <button id="fillHBtn" class="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-[11px] font-bold border border-blue-100 hover:bg-blue-100 transition-all">水平像素插值</button>
+                    <button id="fillVBtn" class="bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg text-[11px] font-bold border border-indigo-100 hover:bg-indigo-100 transition-all">垂直像素插值</button>
+                </div>
+                <button id="downloadBtn" class="bg-slate-800 text-white px-5 py-2 rounded-lg text-xs font-black shadow-lg hover:bg-black transition-all transform hover:-translate-y-0.5">保存 PNG 结果</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-2 rounded-full shadow-2xl text-xs font-bold opacity-0 transition-all pointer-events-none z-[2000] tracking-wide border border-slate-700"></div>
+
+    <script>
+        // --- 元素获取 ---
+        const fileInput = document.getElementById('fileInput');
+        const mainCanvas = document.getElementById('mainCanvas');
+        const mainViewArea = document.getElementById('mainViewArea');
+        const dropHint = document.getElementById('dropHint');
+        const inputW = document.getElementById('inputW');
+        const inputH = document.getElementById('inputH');
+        const lockBtn = document.getElementById('lockBtn');
+        const infoDim = document.getElementById('infoDim');
+        const toast = document.getElementById('toast');
+        const smoothingToggle = document.getElementById('smoothingToggle');
+        const btnCropMode = document.getElementById('btnCropMode');
+        const normalTools = document.getElementById('normalTools');
+        const cropBar = document.getElementById('cropBar');
+        const rectSizeInputs = document.getElementById('rectSizeInputs');
+        const cropInputW = document.getElementById('cropInputW');
+        const cropInputH = document.getElementById('cropInputH');
+        const rectCropOverlay = document.getElementById('rectCropOverlay');
+        const freeCropPolygon = document.getElementById('freeCropPolygon');
+        const freePolygonEl = freeCropPolygon.querySelector('polygon');
+        const freeHandles = [
+            document.getElementById('p0'), document.getElementById('p1'), 
+            document.getElementById('p2'), document.getElementById('p3')
+        ];
+        const modeRect = document.getElementById('modeRect');
+        const modeFree = document.getElementById('modeFree');
+
+        // --- 全局状态 ---
+        let sourceImg = null; 
+        let isLocked = true;
+        let currentAspectRatio = 1;
+        let cropActive = false;
+        let activeCropMode = 'rect'; // 'rect' or 'free'
+        let rectState = { x: 0, y: 0, w: 0, h: 0, dragType: null, startX: 0, startY: 0 };
+        let freePoints = [{x:0,y:0}, {x:0,y:0}, {x:0,y:0}, {x:0,y:0}]; 
+        let freeDragState = { active: false, pointIdx: -1, isWholeMove: false, startX: 0, startY: 0, basePoints: [] };
+
+        // --- 核心工具函数 ---
+        function showToast(msg) {
+            toast.textContent = msg;
+            toast.style.opacity = '1';
+            toast.style.transform = 'translate(-50%, -10px)';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translate(-50%, 0)';
+            }, 2500);
+        }
+
+        function getCanvasDisplayRect() {
+            const container = mainViewArea.getBoundingClientRect();
+            const canvasRect = mainCanvas.getBoundingClientRect();
+            return {
+                left: canvasRect.left - container.left,
+                top: canvasRect.top - container.top,
+                width: canvasRect.width,
+                height: canvasRect.height
+            };
+        }
+
+        /**
+         * 状态提交核心：将 Canvas 内容固化为“物理新图”
+         * 解决坐标污染和抗锯齿模糊的关键
+         */
+        function updateCanvasFromSource(source) {
+            const buffer = document.createElement('canvas');
+            buffer.width = source.width;
+            buffer.height = source.height;
+            const bCtx = buffer.getContext('2d');
+            
+            // 物理层强制禁用平滑
+            bCtx.imageSmoothingEnabled = false;
+            bCtx.drawImage(source, 0, 0);
+
+            // 更新主画布物理属性
+            mainCanvas.width = buffer.width;
+            mainCanvas.height = buffer.height;
+            const ctx = mainCanvas.getContext('2d');
+            
+            // ！！！ 重点：修改尺寸后必须立即重新声明禁用平滑，否则线条会变模糊 ！！！
+            ctx.imageSmoothingEnabled = false; 
+            ctx.drawImage(buffer, 0, 0);
+            
+            // 捕获为新的 source 对象，完全断开与旧坐标系的关联
+            const img = new Image();
+            img.src = mainCanvas.toDataURL('image/png');
+            sourceImg = img;
+            
+            // 同步 UI 状态
+            inputW.value = mainCanvas.width;
+            inputH.value = mainCanvas.height;
+            currentAspectRatio = mainCanvas.width / mainCanvas.height;
+            infoDim.textContent = `${mainCanvas.width} × ${mainCanvas.height}`;
+        }
+
+        // --- 核心处理器 ---
+
+        function applyResize() {
+            const targetW = Math.max(1, Math.round(parseInt(inputW.value) || 1));
+            const targetH = Math.max(1, Math.round(parseInt(inputH.value) || 1));
+            const temp = document.createElement('canvas');
+            temp.width = targetW; temp.height = targetH;
+            const tCtx = temp.getContext('2d');
+            
+            // 用户可选平滑状态
+            tCtx.imageSmoothingEnabled = smoothingToggle.checked;
+            tCtx.imageSmoothingQuality = 'high';
+            
+            tCtx.drawImage(mainCanvas, 0, 0, targetW, targetH);
+            updateCanvasFromSource(temp);
+            showToast(`图像缩放至 ${targetW}x${targetH}`);
+        }
+
+        function applyMirror(horizontal = true) {
+            const w = mainCanvas.width, h = mainCanvas.height;
+            const temp = document.createElement('canvas');
+            temp.width = w; temp.height = h;
+            const tCtx = temp.getContext('2d');
+            tCtx.imageSmoothingEnabled = false;
+            
+            if (horizontal) { tCtx.translate(w, 0); tCtx.scale(-1, 1); } 
+            else { tCtx.translate(0, h); tCtx.scale(1, -1); }
+            
+            tCtx.drawImage(mainCanvas, 0, 0);
+            updateCanvasFromSource(temp);
+            showToast(horizontal ? "已完成水平镜像" : "已完成垂直镜像");
+        }
+
+        function applySparse() {
+            const w = mainCanvas.width, h = mainCanvas.height;
+            const newW = w * 2 - 1, newH = h * 2 - 1;
+            const srcCtx = mainCanvas.getContext('2d');
+            const srcData = srcCtx.getImageData(0, 0, w, h).data;
+            
+            const temp = document.createElement('canvas');
+            temp.width = newW; temp.height = newH;
+            const tCtx = temp.getContext('2d');
+            const targetData = tCtx.createImageData(newW, newH);
+            const target = targetData.data;
+
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const sIdx = (y * w + x) * 4;
+                    const tIdx = ((y * 2) * newW + (x * 2)) * 4;
+                    for (let i = 0; i < 4; i++) target[tIdx + i] = srcData[sIdx + i];
+                }
+            }
+            tCtx.putImageData(targetData, 0, 0);
+            updateCanvasFromSource(temp);
+            showToast("像素稀疏化已完成");
+        }
+
+        // --- 剪裁状态逻辑 ---
+
+        btnCropMode.onclick = () => {
+            cropActive = true;
+            normalTools.classList.add('hidden');
+            cropBar.classList.remove('hidden');
+            refreshCropUIState();
+        };
+
+        function exitCropMode() {
+            cropActive = false;
+            cropBar.classList.add('hidden');
+            normalTools.classList.remove('hidden');
+            refreshCropUIState();
+        }
+
+        function refreshCropUIState() {
+            const r = getCanvasDisplayRect();
+            if (!cropActive) {
+                rectCropOverlay.style.display = 'none';
+                freeCropPolygon.style.display = 'none';
+                freeHandles.forEach(h => h.style.display = 'none');
+                return;
+            }
+
+            if (activeCropMode === 'rect') {
+                rectCropOverlay.style.display = 'block';
+                freeCropPolygon.style.display = 'none';
+                freeHandles.forEach(h => h.style.display = 'none');
+                rectSizeInputs.classList.remove('hidden');
+                rectState.w = r.width * 0.7; rectState.h = r.height * 0.7;
+                rectState.x = r.left + (r.width - rectState.w)/2; rectState.y = r.top + (r.height - rectState.h)/2;
+                updateRectUI();
+            } else {
+                rectCropOverlay.style.display = 'none';
+                freeCropPolygon.style.display = 'block';
+                freeHandles.forEach(h => h.style.display = 'block');
+                rectSizeInputs.classList.add('hidden');
+                const pad = 40;
+                freePoints = [
+                    {x: r.left + pad, y: r.top + pad},
+                    {x: r.left + r.width - pad, y: r.top + pad},
+                    {x: r.left + r.width - pad, y: r.top + r.height - pad},
+                    {x: r.left + pad, y: r.top + r.height - pad}
+                ];
+                updateFreeUI();
+            }
+        }
+
+        modeRect.onclick = () => { activeCropMode = 'rect'; modeRect.className = 'text-[10px] active-btn px-2 py-1 rounded transition-all'; modeFree.className = 'text-[10px] px-2 py-1 rounded transition-all'; refreshCropUIState(); };
+        modeFree.onclick = () => { activeCropMode = 'free'; modeFree.className = 'text-[10px] active-btn px-2 py-1 rounded transition-all'; modeRect.className = 'text-[10px] px-2 py-1 rounded transition-all'; refreshCropUIState(); };
+
+        function updateRectUI() {
+            rectCropOverlay.style.left = `${rectState.x}px`;
+            rectCropOverlay.style.top = `${rectState.y}px`;
+            rectCropOverlay.style.width = `${rectState.w}px`;
+            rectCropOverlay.style.height = `${rectState.h}px`;
+            
+            const r = getCanvasDisplayRect();
+            const sx = mainCanvas.width / r.width;
+            const sy = mainCanvas.height / r.height;
+            cropInputW.value = Math.round(rectState.w * sx);
+            cropInputH.value = Math.round(rectState.h * sy);
+        }
+
+        function handleCropInputChange(isW) {
+            const r = getCanvasDisplayRect();
+            const sx = mainCanvas.width / r.width;
+            const sy = mainCanvas.height / r.height;
+            
+            let valW = Math.max(1, parseInt(cropInputW.value) || 1);
+            let valH = Math.max(1, parseInt(cropInputH.value) || 1);
+            
+            valW = Math.min(mainCanvas.width, valW);
+            valH = Math.min(mainCanvas.height, valH);
+
+            if (isLocked) {
+                if (isW) valH = Math.round(valW / currentAspectRatio);
+                else valW = Math.round(valH * currentAspectRatio);
+            }
+
+            rectState.w = valW / sx;
+            rectState.h = valH / sy;
+            
+            // 边界约束：不移出画布
+            if (rectState.x + rectState.w > r.left + r.width) rectState.x = r.left + r.width - rectState.w;
+            if (rectState.y + rectState.h > r.top + r.height) rectState.y = r.top + r.height - rectState.h;
+            
+            updateRectUI();
+        }
+
+        cropInputW.oninput = () => handleCropInputChange(true);
+        cropInputH.oninput = () => handleCropInputChange(false);
+
+        function updateFreeUI() {
+            freeHandles.forEach((h, i) => {
+                h.style.left = `${freePoints[i].x}px`;
+                h.style.top = `${freePoints[i].y}px`;
+            });
+            const pts = freePoints.map(p => `${p.x},${p.y}`).join(' ');
+            freePolygonEl.setAttribute('points', pts);
+        }
+
+        // --- 拖拽交互核心 ---
+
+        rectCropOverlay.onmousedown = (e) => {
+            rectState.dragType = e.target.dataset.handle || 'move';
+            rectState.startX = e.clientX; rectState.startY = e.clientY;
+            e.preventDefault(); e.stopPropagation();
+        };
+
+        freeCropPolygon.onmousedown = (e) => {
+            if (!cropActive || activeCropMode !== 'free') return;
+            freeDragState.active = true; freeDragState.isWholeMove = true; freeDragState.pointIdx = -1;
+            freeDragState.startX = e.clientX; freeDragState.startY = e.clientY;
+            freeDragState.basePoints = freePoints.map(p => ({...p}));
+            e.preventDefault(); e.stopPropagation();
+        };
+
+        freeHandles.forEach(h => {
+            h.onmousedown = (e) => {
+                freeDragState.active = true; freeDragState.isWholeMove = false;
+                freeDragState.pointIdx = parseInt(h.dataset.id);
+                freeDragState.startX = e.clientX; freeDragState.startY = e.clientY;
+                freeDragState.basePoints = freePoints.map(p => ({...p}));
+                e.preventDefault(); e.stopPropagation();
+            };
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            const dx = e.clientX - rectState.startX, dy = e.clientY - rectState.startY;
+            const r = getCanvasDisplayRect();
+
+            if (cropActive && activeCropMode === 'rect' && rectState.dragType) {
+                if (rectState.dragType === 'move') {
+                    rectState.x = Math.max(r.left, Math.min(r.left + r.width - rectState.w, rectState.x + dx));
+                    rectState.y = Math.max(r.top, Math.min(r.top + r.height - rectState.h, rectState.y + dy));
+                } else {
+                    const h = rectState.dragType;
+                    const aspect = isLocked ? currentAspectRatio : null;
+                    const sx = mainCanvas.width / r.width;
+                    const sy = mainCanvas.height / r.height;
+
+                    if (h.includes('e')) rectState.w = Math.max(10, Math.min(r.left + r.width - rectState.x, rectState.w + dx));
+                    if (h.includes('s')) rectState.h = Math.max(10, Math.min(r.top + r.height - rectState.y, rectState.h + dy));
+                    
+                    if (h.includes('w')) { 
+                        const ow = rectState.w; 
+                        rectState.w = Math.max(10, Math.min(rectState.x + ow - r.left, ow - dx)); 
+                        rectState.x += (ow - rectState.w); 
+                    }
+                    if (h.includes('n')) { 
+                        const oh = rectState.h; 
+                        rectState.h = Math.max(10, Math.min(rectState.y + oh - r.top, oh - dy)); 
+                        rectState.y += (oh - rectState.h); 
+                    }
+                    
+                    if (isLocked) {
+                        if (h === 'se' || h === 'e') rectState.h = rectState.w / aspect;
+                        else if (h === 'sw') { rectState.h = rectState.w / aspect; }
+                        else if (h === 'ne' || h === 'n') { rectState.w = rectState.h * aspect; }
+                    }
+                }
+                rectState.startX = e.clientX; rectState.startY = e.clientY;
+                updateRectUI();
+            } 
+            else if (cropActive && activeCropMode === 'free' && freeDragState.active) {
+                let moveX = e.clientX - freeDragState.startX;
+                let moveY = e.clientY - freeDragState.startY;
+
+                if (freeDragState.isWholeMove) {
+                    const minX = Math.min(...freeDragState.basePoints.map(p => p.x));
+                    const maxX = Math.max(...freeDragState.basePoints.map(p => p.x));
+                    const minY = Math.min(...freeDragState.basePoints.map(p => p.y));
+                    const maxY = Math.max(...freeDragState.basePoints.map(p => p.y));
+                    
+                    if (minX + moveX < r.left) moveX = r.left - minX;
+                    if (maxX + moveX > r.left + r.width) moveX = (r.left + r.width) - maxX;
+                    if (minY + moveY < r.top) moveY = r.top - minY;
+                    if (maxY + moveY > r.top + r.height) moveY = (r.top + r.height) - maxY;
+
+                    freePoints.forEach((p, i) => {
+                        p.x = freeDragState.basePoints[i].x + moveX;
+                        p.y = freeDragState.basePoints[i].y + moveY;
+                    });
+                } else {
+                    let nx = freeDragState.basePoints[freeDragState.pointIdx].x + moveX;
+                    let ny = freeDragState.basePoints[freeDragState.pointIdx].y + moveY;
+                    
+                    if (e.metaKey || e.ctrlKey) {
+                        const tDx = Math.abs(nx - freeDragState.basePoints[freeDragState.pointIdx].x);
+                        const tDy = Math.abs(ny - freeDragState.basePoints[freeDragState.pointIdx].y);
+                        if (tDx > tDy) ny = freeDragState.basePoints[freeDragState.pointIdx].y; 
+                        else nx = freeDragState.basePoints[freeDragState.pointIdx].x;
+                    }
+                    freePoints[freeDragState.pointIdx].x = Math.max(r.left, Math.min(r.left + r.width, nx));
+                    freePoints[freeDragState.pointIdx].y = Math.max(r.top, Math.min(r.top + r.height, ny));
+                }
+                updateFreeUI();
+            }
+        });
+
+        window.addEventListener('mouseup', () => { rectState.dragType = null; freeDragState.active = false; });
+
+        // --- 剪裁确认逻辑 (抗模糊核心) ---
+        document.getElementById('confirmCrop').onclick = () => {
+            const r = getCanvasDisplayRect();
+            const sx = mainCanvas.width / r.width;
+            const sy = mainCanvas.height / r.height;
+            const temp = document.createElement('canvas');
+            
+            if (activeCropMode === 'rect') {
+                // ！！！ 强制取整，防止亚像素模糊 ！！！
+                const ix = Math.round((rectState.x - r.left) * sx);
+                const iy = Math.round((rectState.y - r.top) * sy);
+                const iw = Math.round(rectState.w * sx);
+                const ih = Math.round(rectState.h * sy);
+
+                temp.width = Math.max(1, iw); temp.height = Math.max(1, ih);
+                const tCtx = temp.getContext('2d');
+                tCtx.imageSmoothingEnabled = false;
+                tCtx.drawImage(mainCanvas, ix, iy, iw, ih, 0, 0, temp.width, temp.height);
+            } else {
+                const pts = freePoints.map(p => ({ x: (p.x - r.left) * sx, y: (p.y - r.top) * sy }));
+                const fMinX = Math.min(...pts.map(p => p.x));
+                const fMinY = Math.min(...pts.map(p => p.y));
+                const fMaxX = Math.max(...pts.map(p => p.x));
+                const fMaxY = Math.max(...pts.map(p => p.y));
+                
+                // 强制整数包围盒
+                const ix = Math.floor(Math.max(0, fMinX));
+                const iy = Math.floor(Math.max(0, fMinY));
+                const iw = Math.ceil(Math.min(mainCanvas.width, fMaxX)) - ix;
+                const ih = Math.ceil(Math.min(mainCanvas.height, fMaxY)) - iy;
+
+                if (iw <= 0 || ih <= 0) return showToast("无效选区");
+
+                temp.width = iw; temp.height = ih;
+                const tCtx = temp.getContext('2d');
+                tCtx.imageSmoothingEnabled = false;
+                tCtx.clearRect(0, 0, iw, ih); 
+                tCtx.beginPath();
+                pts.forEach((p, i) => { if (i === 0) tCtx.moveTo(p.x - ix, p.y - iy); else tCtx.lineTo(p.x - ix, p.y - iy); });
+                tCtx.closePath(); tCtx.clip(); // 建立路径剪切
+                tCtx.drawImage(mainCanvas, ix, iy, iw, ih, 0, 0, iw, ih);
+            }
+            
+            updateCanvasFromSource(temp);
+            exitCropMode();
+            showToast("成功应用剪裁（已清除冗余像素）");
+        };
+
+        // --- 其它绑定 ---
+        document.getElementById('toggleLR').onclick = () => {
+            const r = getCanvasDisplayRect(); rectState.w = r.width/2; rectState.h = r.height; rectState.y = r.top;
+            rectState.x = (Math.abs(rectState.x - r.left) < 2) ? r.left + r.width/2 : r.left; updateRectUI();
+        };
+        document.getElementById('toggleTB').onclick = () => {
+            const r = getCanvasDisplayRect(); rectState.w = r.width; rectState.h = r.height/2; rectState.x = r.left;
+            rectState.y = (Math.abs(rectState.y - r.top) < 2) ? r.top + r.height/2 : r.top; updateRectUI();
+        };
+        document.getElementById('cancelCrop').onclick = exitCropMode;
+        document.getElementById('btnMirrorH').onclick = () => applyMirror(true);
+        document.getElementById('btnMirrorV').onclick = () => applyMirror(false);
+
+        function handleFile(file) {
+            if (!file || !file.type.startsWith('image/')) return;
+            const r = new FileReader();
+            r.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    dropHint.classList.add('hidden');
+                    mainCanvas.classList.remove('hidden');
+                    ['settingsSection', 'actionSection', 'resetBtn'].forEach(id => document.getElementById(id).classList.remove('hidden'));
+                    updateCanvasFromSource(img);
+                    showToast("图片导入成功");
+                };
+                img.src = e.target.result;
+            };
+            r.readAsDataURL(file);
+        }
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+            window.addEventListener(evt, e => e.preventDefault());
+            mainViewArea.addEventListener(evt, e => e.preventDefault());
+        });
+        mainViewArea.addEventListener('dragover', () => mainViewArea.classList.add('drag-active'));
+        mainViewArea.addEventListener('dragleave', () => mainViewArea.classList.remove('drag-active'));
+        mainViewArea.addEventListener('drop', (e) => { mainViewArea.classList.remove('drag-active'); handleFile(e.dataTransfer.files[0]); });
+        mainViewArea.onclick = () => { if(mainCanvas.classList.contains('hidden')) fileInput.click(); };
+        fileInput.onchange = (e) => handleFile(e.target.files[0]);
+
+        lockBtn.onclick = () => { isLocked = !isLocked; lockBtn.classList.toggle('locked', isLocked); };
+        inputW.oninput = () => { if (isLocked) inputH.value = Math.round(inputW.value / currentAspectRatio); };
+        inputH.oninput = () => { if (isLocked) inputW.value = Math.round(inputH.value * currentAspectRatio); };
+        document.getElementById('btnResize').onclick = applyResize;
+        document.getElementById('btnSparse').onclick = applySparse;
+
+        document.getElementById('fillHBtn').onclick = () => {
+            const ctx = mainCanvas.getContext('2d'), w = mainCanvas.width, h = mainCanvas.height;
+            const img = ctx.getImageData(0, 0, w, h);
+            for (let y = 0; y < h; y += 2) {
+                for (let x = 0; x < w - 2; x += 2) {
+                    const l = (y*w+x)*4, r = (y*w+x+2)*4, m = (y*w+x+1)*4;
+                    for (let i=0; i<4; i++) img.data[m+i] = Math.round((img.data[l+i] + img.data[r+i]) / 2);
+                }
+            }
+            ctx.putImageData(img, 0, 0); showToast("完成水平插值");
+        };
+        document.getElementById('fillVBtn').onclick = () => {
+            const ctx = mainCanvas.getContext('2d'), w = mainCanvas.width, h = mainCanvas.height;
+            const img = ctx.getImageData(0, 0, w, h);
+            for (let x = 0; x < w; x++) {
+                for (let y = 0; y < h - 2; y += 2) {
+                    const t = (y*w+x)*4, b = ((y+2)*w+x)*4, m = ((y+1)*w+x)*4;
+                    for (let i=0; i<4; i++) img.data[m+i] = Math.round((img.data[t+i] + img.data[b+i]) / 2);
+                }
+            }
+            ctx.putImageData(img, 0, 0); showToast("完成垂直插值");
+        };
+
+        document.getElementById('resetBtn').onclick = () => location.reload();
+        document.getElementById('downloadBtn').onclick = () => {
+            const a = document.createElement('a'); a.download = `processed_pixel_${Date.now()}.png`; a.href = mainCanvas.toDataURL(); a.click();
+        };
+    </script>
+</body>
+</html>

@@ -22,6 +22,7 @@ export type ToolbarToolId =
   // 选区操作
   | 'crop'          // 按区剪裁
   | 'fill'          // 选区着色
+  | 'hd'            // 稀疏高清重构
   // 旋转与镜像
   | 'flipH'         // 水平镜像
   | 'flipV'         // 垂直镜像
@@ -83,6 +84,7 @@ export const ALL_TOOLBAR_TOOLS: ToolbarToolDef[] = [
   // 4. 选区操作
   { id: 'crop', name: '按区剪裁', shortName: '剪裁', category: 'action', description: '按当前活动选区直接裁剪整幅画面', defaultVisible: true },
   { id: 'fill', name: '选区着色', shortName: '着色', category: 'action', description: '将当前调色板颜色批量填充进选区', defaultVisible: true },
+  { id: 'hd', name: '稀疏高清', shortName: '高清', category: 'action', description: '基于稀疏插值与超分重构无损放大图片分辨率', defaultVisible: true },
 
   // 5. 旋转与镜像
   { id: 'flipH', name: '水平镜像', shortName: '水平翻转', category: 'transform', description: '沿左右中心线对称翻转', defaultVisible: true },
