@@ -99,24 +99,36 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
         const isDragging = !!hdDragHandle;
         const curBox = hdBox || { x: 0, y: 0, w: nw, h: nh };
 
-        // 计算 HDBox 顶边 Y 与 水平中心 X 在工作区视口内的绝对像素坐标
+        // 计算 HDBox 在工作区视口内的绝对像素坐标
         let boxTop = imgRect.top - wsRect.top;
+        let boxBottom = imgRect.bottom - wsRect.top;
         let boxCenterX = imgRect.left + imgRect.width / 2 - wsRect.left;
 
         if (isDragging) {
           boxTop = imgRect.top + (curBox.y / nh) * imgRect.height - wsRect.top;
+          boxBottom = boxTop + (curBox.h / nh) * imgRect.height;
           boxCenterX = imgRect.left + ((curBox.x + curBox.w / 2) / nw) * imgRect.width - wsRect.left;
         }
 
         const badgeH = 34; // 胶囊高度估算
-        const offset = 10; // 与图形顶部的间距
+        const offset = 12; // 与图形边缘的呼吸间距
+        const topToolbarSafeY = 68; // 顶部浮动工具栏的安全避让基准线
 
-        // 默认贴在图形顶边正上方：boxTop - badgeH - offset
-        // 当图形上移靠近视口顶端（甚至被顶边切出）时，智能吸附在视口安全顶边 (8px)，彻底消除剪裁
+        // 默认贴在图形顶边正上方
         let targetY = boxTop - badgeH - offset;
-        if (targetY < 8) {
-          targetY = 8;
+        // 当图形上移靠近或穿过顶部工具栏时，智能翻转至图形下方，或停靠于工具栏正下方
+        if (targetY < topToolbarSafeY) {
+          if (boxBottom + badgeH + offset < wsRect.height - 20) {
+            targetY = boxBottom + offset;
+          } else {
+            targetY = topToolbarSafeY;
+          }
         }
+
+        // 水平居中并增加视口两侧防溢出安全边距
+        const minCenterX = 180;
+        const maxCenterX = Math.max(minCenterX, wsRect.width - 180);
+        const safeCenterX = Math.min(Math.max(boxCenterX, minCenterX), maxCenterX);
 
         const ratio = Math.round((curBox.w / nw) * 100);
 
@@ -124,7 +136,7 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
           <div 
             className="absolute z-40 pointer-events-auto transition-none"
             style={{
-              left: `${boxCenterX}px`,
+              left: `${safeCenterX}px`,
               top: `${targetY}px`,
               transform: 'translateX(-50%)',
             }}
