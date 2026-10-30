@@ -29,14 +29,41 @@
     });
   </script>
 
-  <!-- 标准 Vite ESM 源码引入：让 Vite 自动注入并正确等待 React Refresh Preamble，彻底根治 can't detect preamble 报错 -->
+  <!-- 标准 Vite ESM 源码引入：本地 Vite 开发态秒级热更 -->
   <script type="module" src="/src/index.ts"></script>
 
-  <!-- 离线兼容：本地直接双击打开 (file://) 时，同步注入独立单文件 UMD SDK -->
+  <!-- 离线/静态部署兼容与动态时间戳防缓存：
+       1. 运行时通过原生 HEAD 请求动态探测 ./dist/tiamo-image-editor.umd.js 的真实修改时间戳 (Last-Modified)；
+       2. 自动拼接动态时间戳防浏览器缓存，且 index.html 文件本身永远无需反复修改和上传；
+       3. 无论部署在群晖 NAS、Nginx 还是离线双击打开，均能无缝自动加载最新 SDK。 -->
   <script>
-    if (!window.location.protocol.startsWith('http')) {
-      document.write('<script src="./dist/tiamo-image-editor.umd.js?t=1793402164749"><\/script>');
-    }
+    (function() {
+      var scriptUrl = './dist/tiamo-image-editor.umd.js';
+      try {
+        if (window.location.protocol.startsWith('http')) {
+          var xhr = new XMLHttpRequest();
+          xhr.open('HEAD', scriptUrl, false);
+          xhr.send();
+          if (xhr.status >= 200 && xhr.status < 400) {
+            var lastMod = xhr.getResponseHeader('Last-Modified');
+            if (lastMod) {
+              var t = new Date(lastMod).getTime();
+              if (t) scriptUrl += '?t=' + t;
+            }
+          }
+        }
+      } catch (e) {
+        // file:// 离线或跨域时安全忽略
+      }
+
+      var isViteDev = window.location.protocol.startsWith('http') && 
+                      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '0.0.0.0') && 
+                      (window.location.port === '5173' || window.location.port === '3000');
+
+      if (!isViteDev) {
+        document.write('<script src="' + scriptUrl + '"><\/script>');
+      }
+    })();
   </script>
 
   <style>
